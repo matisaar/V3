@@ -61,7 +61,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (userId: string | null) => void }>
           <div className="flex items-center">
             <div className="bg-gray-800 p-3 rounded-lg mr-4">
               {/* MoneyIcon from icons.tsx */}
-              <imported.MoneyIcon className="w-8 h-8 text-white" />
+              <MoneyIcon className="w-8 h-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Personal Finance Tracker</h1>
