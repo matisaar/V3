@@ -316,8 +316,8 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FDFDFD] p-4 sm:p-6 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
-        <SupabaseAuth onAuth={setUserId} />
-        <Header onFileChange={handleFileChange} isLoading={isLoading} />
+  {!userId && <SupabaseAuth onAuth={setUserId} />}
+  <Header onFileChange={handleFileChange} isLoading={isLoading} />
 
         {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 flex items-center" role="alert">
