@@ -1,0 +1,5 @@
+{
+  "name": "AI Personal Finance Tracker",
+  "description": "An intelligent personal finance dashboard that allows users to upload their transaction history as a CSV file. The application uses the Gemini API to automatically categorize transactions and visualizes income, expenses, and savings through interactive charts and summaries.",
+  "requestFramePermissions": []
+}
