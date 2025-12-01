@@ -28,16 +28,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     return (
         <div className="space-y-8">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 120 }}>
                 <CashFlowSnapshot processedData={processedData} />
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 320 }}>
                 <SavingsChart data={processedData.periodSummaries} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 320 }}>
                     <BreakdownDonutChart
                         title="Income Breakdown"
                         totalAmount={processedData.totalIncome}
@@ -45,7 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         colors={['#10B981', '#34D399', '#6EE7B7']}
                     />
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 320 }}>
                     <BreakdownDonutChart
                         title="Expenses Breakdown"
                         totalAmount={processedData.totalExpenses}
@@ -55,24 +55,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 120 }}>
                 <SavingsSummary
                     periodData={processedData.periodSummaries}
                 />
             </div>
             
-            {(hasMajorExpenses || hasMinorExpenses) && (
-                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <RecurringExpenses 
-                        data={recurringExpenses || []} 
-                        // FIX: Changed onExpenseClick to onRecurringExpenseClick to match the prop name.
-                        onExpenseClick={onRecurringExpenseClick}
-                        hasMinorExpenses={!!hasMinorExpenses}
-                        onInvestigate={onInvestigateMinorExpenses}
-                        isInvestigating={isInvestigatingMinorExpenses}
-                    />
-                </div>
-            )}
+            <div style={{ minHeight: 120 }}>
+                {(hasMajorExpenses || hasMinorExpenses) && (
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200" style={{ minHeight: 120 }}>
+                        <RecurringExpenses 
+                            data={recurringExpenses || []} 
+                            onExpenseClick={onRecurringExpenseClick}
+                            hasMinorExpenses={!!hasMinorExpenses}
+                            onInvestigate={onInvestigateMinorExpenses}
+                            isInvestigating={isInvestigatingMinorExpenses}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

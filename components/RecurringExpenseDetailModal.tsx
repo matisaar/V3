@@ -67,6 +67,7 @@ export const RecurringExpenseDetailModal: React.FC<RecurringExpenseDetailModalPr
         >
             <div 
                 className="bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all duration-300"
+                style={{ minWidth: 400, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
