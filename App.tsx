@@ -12,6 +12,7 @@ import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetailModal';
 import { upsertTransactions } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
+import { getSupabaseClient } from './services/supabaseClient';
 
 type View = 'dashboard' | 'expenses' | 'recommendations';
 
@@ -27,7 +28,74 @@ const parseFileContent = async (text: string, fileName: string): Promise<Omit<Tr
 };
 
 const App: React.FC = () => {
-  const [userId, setUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
+
+  // Helper to clear all user-specific in-memory state when signing out
+  const clearUserData = () => {
+    setProcessedData(null);
+    setAllTransactions([]);
+    setRecurringExpenses(null);
+    setMinorRecurringTransactions(null);
+    setRecommendations(null);
+    setTransactionExplanation(null);
+    setIsExplanationModalOpen(false);
+    setIsRecurringExpenseModalOpen(false);
+    setError(null);
+    setProgress(null);
+    setIsLoading(false);
+    setLoadingMessage('');
+    setIsGeneratingRecs(false);
+    setRecsError(null);
+    setView('dashboard');
+  };
+
+  // Called from SupabaseAuth (and elsewhere) when the auth state changes.
+  // If the user signs out or a different user signs in, clear app state and load persisted data for the new user.
+  const handleAuthChange = async (u: { id: string | null; email?: string | null; firstName?: string | null }) => {
+    const newUser = u && u.id ? u : null;
+    // If signing out or switching accounts, clear previous user's data
+    if (!newUser || (user && newUser && user.id !== newUser.id)) {
+      clearUserData();
+    }
+    setUser(newUser);
+
+    // If we have a signed-in user, try to fetch their persisted transactions
+    if (newUser && newUser.id) {
+      try {
+        setIsLoading(true);
+        setLoadingMessage('Loading saved transactions...');
+        const persisted = await (await import('./services/supabaseClient')).fetchTransactionsByUser(newUser.id);
+        if (persisted && persisted.length > 0) {
+          // Ensure dates are proper Date objects
+          const mapped = persisted.map((tx: any) => ({ ...tx, date: tx.date ? new Date(tx.date) : new Date() }));
+          setAllTransactions(mapped);
+          // processAndSetData will run via the allTransactions effect
+        } else {
+          // No persisted data for this user
+          setAllTransactions([]);
+          setProcessedData(null);
+        }
+      } catch (e) {
+        console.warn('Failed to load persisted transactions for user:', e);
+      } finally {
+        setIsLoading(false);
+        setLoadingMessage('');
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    console.log('Sign out button clicked');
+    const supabase = getSupabaseClient();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Error signing out:', e);
+    }
+    // Ensure local state is cleared right away
+    clearUserData();
+    setUser(null);
+  };
   const [processedData, setProcessedData] = useState<ProcessedData | null>(MOCK_DATA);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[] | null>(MOCK_RECURRING_EXPENSES);
@@ -167,8 +235,10 @@ const App: React.FC = () => {
       (async () => {
         try {
           // Use logged-in user's id if available, otherwise 'anonymous'
-          const uid = userId || 'anonymous';
-          await upsertTransactions(uid, categorized.map(t => ({ ...t, date: t.date.toISOString() })));
+          const uid = user?.id || 'anonymous';
+          // Prefer firstName from auth metadata; fallback to email if firstName not available
+          const displayName = user?.firstName || user?.email || null;
+          await upsertTransactions(uid, categorized.map(t => ({ ...t, date: t.date.toISOString() })), displayName);
         } catch (e) {
           console.warn('Supabase upsert failed (non-fatal):', e);
         }
@@ -316,8 +386,8 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FDFDFD] p-4 sm:p-6 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
-  {!userId && <SupabaseAuth onAuth={setUserId} />}
-  <Header onFileChange={handleFileChange} isLoading={isLoading} />
+  {!user?.id && <SupabaseAuth onAuth={handleAuthChange} />}
+  <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} />
 
         {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 flex items-center" role="alert">
