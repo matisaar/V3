@@ -13,8 +13,7 @@ import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetail
 import { upsertTransactions } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import React, { useEffect } from 'react';
+import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 
 type View = 'dashboard' | 'expenses' | 'recommendations';
 
@@ -503,23 +502,9 @@ const App: React.FC = () => {
             expense={selectedRecurringExpense}
             allTransactions={allTransactions}
         />
-        <SpeedInsights />
-        {/* Debug: log when SpeedInsights is mounted and check for script */}
-        {(() => {
-          useEffect(() => {
-            console.log('[SpeedInsights] Component mounted');
-            const checkScript = () => {
-              const script = document.querySelector('script[src*="speed-insights"]');
-              if (script) {
-                console.log('[SpeedInsights] Script found:', script.src);
-              } else {
-                console.warn('[SpeedInsights] Script NOT found in <head>');
-              }
-            };
-            setTimeout(checkScript, 2000);
-          }, []);
-          return null;
-        })()}
+        <div className="speedinsights-root" style={{ minHeight: 60 }}>
+          <SpeedInsightsWrapper />
+        </div>
       </div>
     </div>
   );
