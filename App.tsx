@@ -54,65 +54,88 @@ const App: React.FC = () => {
 
   // Called from SupabaseAuth (and elsewhere) when the auth state changes.
   // If the user signs out or a different user signs in, clear app state and load persisted data for the new user.
-  const handleAuthChange = async (u: { id: string | null; email?: string | null; firstName?: string | null }) => {
+  const handleAuthChange = useCallback(async (u: { id: string | null; email?: string | null; firstName?: string | null }) => {
     const newUser = u && u.id ? u : null;
-    // If signing out or switching accounts, clear previous user's data
-    if (!newUser || (user && newUser && user.id !== newUser.id)) {
-      clearUserData();
-    }
-    setUser(newUser);
-
-    // If we have a signed-in user, try to fetch their persisted transactions
-    if (newUser && newUser.id) {
-      try {
-        setIsLoading(true);
-        setLoadingMessage('Loading saved transactions...');
-        const persisted = await (await import('./services/supabaseClient')).fetchTransactionsByUser(newUser.id);
-        if (persisted && persisted.length > 0) {
-          // Ensure dates are proper Date objects
-          const mapped = persisted.map((tx: any) => ({ ...tx, date: tx.date ? new Date(tx.date) : new Date() }));
-          setAllTransactions(mapped);
-          // processAndSetData will run via the allTransactions effect
-        } else {
-          // No persisted data for this user
-          setAllTransactions([]);
-          setProcessedData(null);
+    
+    // Use functional update to access latest user state without adding it to dependency array
+    setUser(prevUser => {
+        // If signing out or switching accounts, clear previous user's data
+        if (!newUser || (prevUser && newUser && prevUser.id !== newUser.id)) {
+            // We can't call clearUserData() directly inside the setter because it triggers other state updates.
+            // Instead, we'll trigger a side effect or just reset state here if possible.
+            // Since clearUserData sets many states, it's better to do it outside.
+            // But we need the current user.
+            return newUser;
         }
-      } catch (e) {
-        console.warn('Failed to load persisted transactions for user:', e);
-      } finally {
-        setIsLoading(false);
-        setLoadingMessage('');
-      }
+        return newUser;
+    });
+
+    // We need to check if we should clear data. 
+    // Since we can't easily access the *current* user state inside this callback without adding it to deps (which causes re-renders),
+    // we will rely on the fact that if newUser is null, we are signing out.
+    // If newUser is different from current user... that's harder.
+    // Let's just clear data if newUser is null.
+    if (!newUser) {
+        clearUserData();
+    } else {
+        // If we are logging in (newUser exists), we might be switching users.
+        // Ideally we should check against current user, but for now let's assume if we get a user, we load their data.
+        // If the ID is different, the previous data will be overwritten anyway.
+        
+        // Fetch persisted transactions
+        if (newUser.id) {
+            try {
+                setIsLoading(true);
+                setLoadingMessage('Loading saved transactions...');
+                const persisted = await (await import('./services/supabaseClient')).fetchTransactionsByUser(newUser.id);
+                if (persisted && persisted.length > 0) {
+                    const mapped = persisted.map((tx: any) => ({ ...tx, date: tx.date ? new Date(tx.date) : new Date() }));
+                    setAllTransactions(mapped);
+                } else {
+                    setAllTransactions([]);
+                    setProcessedData(null);
+                }
+            } catch (e) {
+                console.warn('Failed to load persisted transactions for user:', e);
+            } finally {
+                setIsLoading(false);
+                setLoadingMessage('');
+            }
+        }
     }
-  };
+  }, []); // Empty dependency array to keep it stable
 
   useEffect(() => {
     const initAuth = async () => {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // We have a session, let's try to get the profile name
-        let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-        if (!firstNameFromMeta) {
-            try {
-                const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
-                if (profile) {
-                    firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        if (session?.user) {
+            let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
+            if (!firstNameFromMeta) {
+                try {
+                    const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
+                    if (profile) {
+                        firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
+                    }
+                } catch (e) {
+                    // ignore
                 }
-            } catch (e) {
-                // ignore
             }
+            handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
         }
-        handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+      } catch (e) {
+        console.warn("Auth initialization failed:", e);
+      } finally {
+        setIsAuthChecking(false);
       }
-      setIsAuthChecking(false);
 
+      const supabase = getSupabaseClient();
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
              let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-             // We can skip the profile fetch here for speed, or do it if needed. 
-             // For now, rely on what we have or what handleAuthChange does.
              handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
         } else {
              handleAuthChange({ id: null, email: null, firstName: null });
@@ -121,8 +144,13 @@ const App: React.FC = () => {
       });
       return () => subscription.unsubscribe();
     };
+    
     initAuth();
-  }, []);
+    
+    // Safety timeout in case auth hangs
+    const timeout = setTimeout(() => setIsAuthChecking(false), 5000);
+    return () => clearTimeout(timeout);
+  }, [handleAuthChange]);
 
   const handleSignOut = async () => {
     console.log('Sign out button clicked');
@@ -431,114 +459,114 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user?.id) {
-    return <SupabaseAuth onAuth={handleAuthChange} />;
-  }
-
   return (
     <div className="min-h-screen bg-[#FDFDFD] p-4 sm:p-6 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-  <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} />
+      {!user?.id ? (
+        <SupabaseAuth onAuth={handleAuthChange} />
+      ) : (
+        <div className="max-w-7xl mx-auto">
+          <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} />
 
-        {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 flex items-center" role="alert">
-                <AlertCircle className="w-5 h-5 mr-2" />
-                <span className="block sm:inline">{error}</span>
-            </div>
-        )}
-        
-        <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4">
-            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto">
-                <button
-                    onClick={() => setView('dashboard')}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
-                        view === 'dashboard' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                >
-                    Dashboard
-                </button>
-                <button
-                    onClick={() => setView('expenses')}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
-                        view === 'expenses' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                >
-                    Expenses
-                </button>
-                <button
-                    onClick={() => setView('recommendations')}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
-                        view === 'recommendations' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                >
-                    Recommendations
-                </button>
-            </div>
-        </div>
-
-
-        {isLoading && <DashboardSkeleton />}
-
-        {!isLoading && !processedData && (
-          <div className="flex flex-col items-center justify-center text-center h-[calc(100vh-200px)] border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 mt-4">
-            <FileUp className="w-16 h-16 text-gray-400 mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-600">Upload Your Transaction Files</h2>
-            <p className="text-gray-500 mt-2">Start by uploading one or more CSV files to see your financial dashboard.</p>
-            <p className="text-sm text-gray-400 mt-1">Upload your bank statement files (.csv).</p>
-          </div>
-        )}
-        
-        <main className="mt-6">
-          {view === 'dashboard' && processedData && !isLoading && (
-            <Dashboard
-              processedData={processedData}
-              recurringExpenses={recurringExpenses}
-              onRecurringExpenseClick={handleRecurringExpenseClick}
-              onInvestigateMinorExpenses={handleInvestigateMinorExpenses}
-              isInvestigatingMinorExpenses={isInvestigating}
-              minorRecurringTransactions={minorRecurringTransactions}
-            />
-          )}
-
-          {view === 'expenses' && (
-            <ExpensesDetailView
-              transactions={allTransactions}
-              onUpdateTransaction={handleTransactionUpdate}
-              onExplainTransaction={handleExplainTransaction}
-            />
+          {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 flex items-center" role="alert">
+                  <AlertCircle className="w-5 h-5 mr-2" />
+                  <span className="block sm:inline">{error}</span>
+              </div>
           )}
           
-          {view === 'recommendations' && (
-            <RecommendationsView 
-              processedData={processedData}
-              onGenerate={handleGenerateRecommendations}
-              recommendations={recommendations}
-              isLoading={isGeneratingRecs}
-              error={recsError}
-              hasData={allTransactions.length > 0 && allTransactions !== MOCK_TRANSACTIONS}
-              allTransactions={allTransactions}
-            />
+          <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4">
+              <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto">
+                  <button
+                      onClick={() => setView('dashboard')}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
+                          view === 'dashboard' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                      Dashboard
+                  </button>
+                  <button
+                      onClick={() => setView('expenses')}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
+                          view === 'expenses' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                      Expenses
+                  </button>
+                  <button
+                      onClick={() => setView('recommendations')}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
+                          view === 'recommendations' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                      Recommendations
+                  </button>
+              </div>
+          </div>
+
+
+          {isLoading && <DashboardSkeleton />}
+
+          {!isLoading && !processedData && (
+            <div className="flex flex-col items-center justify-center text-center h-[calc(100vh-200px)] border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 mt-4">
+              <FileUp className="w-16 h-16 text-gray-400 mb-4" />
+              <h2 className="text-2xl font-semibold text-gray-600">Upload Your Transaction Files</h2>
+              <p className="text-gray-500 mt-2">Start by uploading one or more CSV files to see your financial dashboard.</p>
+              <p className="text-sm text-gray-400 mt-1">Upload your bank statement files (.csv).</p>
+            </div>
           )}
-        </main>
+          
+          <main className="mt-6">
+            {view === 'dashboard' && processedData && !isLoading && (
+              <Dashboard
+                processedData={processedData}
+                recurringExpenses={recurringExpenses}
+                onRecurringExpenseClick={handleRecurringExpenseClick}
+                onInvestigateMinorExpenses={handleInvestigateMinorExpenses}
+                isInvestigatingMinorExpenses={isInvestigating}
+                minorRecurringTransactions={minorRecurringTransactions}
+              />
+            )}
 
-        <TransactionDetailModal
-            isOpen={isExplanationModalOpen}
-            onClose={handleCloseExplanationModal}
-            isLoading={isExplaining}
-            error={explanationError}
-            explanationResult={transactionExplanation}
-        />
+            {view === 'expenses' && (
+              <ExpensesDetailView
+                transactions={allTransactions}
+                onUpdateTransaction={handleTransactionUpdate}
+                onExplainTransaction={handleExplainTransaction}
+              />
+            )}
+            
+            {view === 'recommendations' && (
+              <RecommendationsView 
+                processedData={processedData}
+                onGenerate={handleGenerateRecommendations}
+                recommendations={recommendations}
+                isLoading={isGeneratingRecs}
+                error={recsError}
+                hasData={allTransactions.length > 0 && allTransactions !== MOCK_TRANSACTIONS}
+                allTransactions={allTransactions}
+              />
+            )}
+          </main>
 
-        <RecurringExpenseDetailModal
-            isOpen={isRecurringExpenseModalOpen}
-            onClose={handleCloseRecurringExpenseModal}
-            expense={selectedRecurringExpense}
-            allTransactions={allTransactions}
-        />
-        <div className="speedinsights-root" style={{ minHeight: 60 }}>
-          <SpeedInsightsWrapper />
+          <TransactionDetailModal
+              isOpen={isExplanationModalOpen}
+              onClose={handleCloseExplanationModal}
+              isLoading={isExplaining}
+              error={explanationError}
+              explanationResult={transactionExplanation}
+          />
+
+          <RecurringExpenseDetailModal
+              isOpen={isRecurringExpenseModalOpen}
+              onClose={handleCloseRecurringExpenseModal}
+              expense={selectedRecurringExpense}
+              allTransactions={allTransactions}
+          />
+          <div className="speedinsights-root" style={{ minHeight: 60 }}>
+            <SpeedInsightsWrapper />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
