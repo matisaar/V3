@@ -23,9 +23,9 @@ export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, o
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-800" style={{ minHeight: 32 }}>Personal Finance Tracker</h1>
                 </div>
             </div>
-            <div className="flex items-center gap-3 min-h-[40px]">
+            <div className="flex items-center gap-3" style={{ minHeight: 40, height: 56 }}>
                 {/* Reserve space for user info and sign out button */}
-                <div style={{ minWidth: 220, minHeight: 36, display: 'flex', alignItems: 'center' }}>
+                <div style={{ minWidth: 220, height: 36, display: 'flex', alignItems: 'center' }}>
                     {user && user.id ? (
                         <>
                             <div className="text-sm text-gray-600 bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center mr-2" style={{ minWidth: 140, minHeight: 32 }}>

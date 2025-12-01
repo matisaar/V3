@@ -397,8 +397,8 @@ const App: React.FC = () => {
             </div>
         )}
         
-        <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4">
-            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto">
+        <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4" style={{ minHeight: 48 }}>
+            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto" style={{ height: 40 }}>
                 <button
                     onClick={() => setView('dashboard')}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
