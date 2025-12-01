@@ -31,6 +31,7 @@ const parseFileContent = async (text: string, fileName: string): Promise<Omit<Tr
 
 const App: React.FC = () => {
   const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Helper to clear all user-specific in-memory state when signing out
   const clearUserData = () => {
@@ -85,6 +86,43 @@ const App: React.FC = () => {
       }
     }
   };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // We have a session, let's try to get the profile name
+        let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
+        if (!firstNameFromMeta) {
+            try {
+                const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
+                if (profile) {
+                    firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+      }
+      setIsAuthChecking(false);
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+             let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
+             // We can skip the profile fetch here for speed, or do it if needed. 
+             // For now, rely on what we have or what handleAuthChange does.
+             handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+        } else {
+             handleAuthChange({ id: null, email: null, firstName: null });
+        }
+        setIsAuthChecking(false);
+      });
+      return () => subscription.unsubscribe();
+    };
+    initAuth();
+  }, []);
 
   const handleSignOut = async () => {
     console.log('Sign out button clicked');
@@ -385,10 +423,21 @@ const App: React.FC = () => {
     setTimeout(() => setSelectedRecurringExpense(null), 300);
   };
 
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#FDFDFD] flex items-center justify-center">
+        <Loader className="w-10 h-10 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user?.id) {
+    return <SupabaseAuth onAuth={handleAuthChange} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#FDFDFD] p-4 sm:p-6 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
-  {!user?.id && <SupabaseAuth onAuth={handleAuthChange} />}
   <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} />
 
         {error && (
@@ -398,8 +447,8 @@ const App: React.FC = () => {
             </div>
         )}
         
-        <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4" style={{ minHeight: 48 }}>
-            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto" style={{ height: 40 }}>
+        <div className="mt-6 mb-2 flex items-center justify-between flex-wrap gap-y-4">
+            <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg self-start w-auto overflow-x-auto">
                 <button
                     onClick={() => setView('dashboard')}
                     className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
