@@ -3,7 +3,7 @@ import { MoneyIcon } from './icons';
 import { getSupabaseClient } from '../services/supabaseClient';
 
 export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?: string | null; firstName?: string | null }) => void }> = ({ onAuth }) => {
-  const supabase = getSupabaseClient();
+  const getClient = () => getSupabaseClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -14,13 +14,13 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   useEffect(() => {
     const init = async () => {
       try {
-        const sessionRes = await supabase.auth.getSession();
+        const sessionRes = await getClient().auth.getSession();
         const sessUser = sessionRes?.data?.session?.user;
         if (sessUser) {
           let firstNameFromMeta = (sessUser.user_metadata && (sessUser.user_metadata.first_name || sessUser.user_metadata.firstName)) || null;
           if (!firstNameFromMeta) {
             try {
-              const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', sessUser.id).maybeSingle();
+              const { data: profile } = await getClient().from('profiles').select('full_name,first_name,name').eq('id', sessUser.id).maybeSingle();
               if (profile) {
                 firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
               }
@@ -37,13 +37,13 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
     };
     init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = getClient().auth.onAuthStateChange((_event, session) => {
       (async () => {
         if (session?.user) {
           let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
           if (!firstNameFromMeta) {
             try {
-              const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
+              const { data: profile } = await getClient().from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
               if (profile) {
                 firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
               }
@@ -63,13 +63,13 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [supabase, onAuth]);
+  }, [onAuth]);
 
   const handleSignUp = async () => {
     setLoading(true);
     setError(null);
     // Pass firstName as user_metadata (Supabase will store this in auth.users)
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await getClient().auth.signUp({
       email,
       password,
       options: {
@@ -81,7 +81,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
     if (data?.user) {
       // Try to persist a lightweight profile row so other code can read a display name quickly
       try {
-        await supabase.from('profiles').upsert({ id: data.user.id, email: data.user.email, full_name: firstName });
+        await getClient().from('profiles').upsert({ id: data.user.id, email: data.user.email, full_name: firstName });
       } catch (e) {
         console.warn('Could not upsert profile after signup:', e);
       }
@@ -97,13 +97,13 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const handleSignIn = async () => {
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await getClient().auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     setLoading(false);
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await getClient().auth.signOut();
     setUser(null);
     onAuth({ id: null, email: null });
   };
