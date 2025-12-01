@@ -9,9 +9,30 @@ const SUPABASE_KEY: string | undefined = (typeof import.meta !== 'undefined' && 
 
 let supabase: SupabaseClient | null = null;
 
+function createStubClient(): SupabaseClient {
+  // Minimal stub that mirrors the methods used by the app to avoid throwing at import time.
+  // Each method returns neutral values or an error object so callers can handle failures gracefully.
+  const stub: any = {
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      getUser: async () => ({ data: { user: null } }),
+      onAuthStateChange: (_cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signInWithPassword: async () => ({ error: { message: 'Supabase not configured' } }),
+      signUp: async () => ({ error: { message: 'Supabase not configured' } }),
+      signOut: async () => ({ }),
+    },
+    from: (_table: string) => ({
+      select: async () => ({ data: null }),
+      upsert: async () => ({ error: new Error('Supabase not configured') }),
+    }),
+  };
+  return stub as SupabaseClient;
+}
+
 export function getSupabaseClient(): SupabaseClient {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    throw new Error('Supabase URL or Key not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment.');
+    // Return a stub client instead of throwing so the UI can load and show a helpful message.
+    return createStubClient();
   }
   if (!supabase) {
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
