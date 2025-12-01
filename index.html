@@ -34,9 +34,46 @@
 }
 </script>
 
-</head>
+  </head>
   <body class="bg-gray-50 text-gray-800">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      // Temporary CLS diagnostic logger - will be removed after fixing CLS issues
+      (function() {
+        let cls = 0;
+        const entries = [];
+        const po = new PerformanceObserver(list => {
+          for (const entry of list.getEntries()) {
+            if (!entry.hadRecentInput) {
+              cls += entry.value;
+              entries.push(entry);
+              console.log('[CLS] Layout shift detected:', entry.value.toFixed(4), 'Total:', cls.toFixed(4));
+              if (entry.sources && entry.sources.length > 0) {
+                entry.sources.forEach((s, i) => {
+                  try {
+                    if (s.node) {
+                      const tag = s.node.tagName || 'unknown';
+                      const classes = s.node.className || '';
+                      const id = s.node.id || '';
+                      const html = s.node.outerHTML ? s.node.outerHTML.slice(0, 200) : '';
+                      console.log(`[CLS] Source ${i + 1}:`, tag, 'class:', classes, 'id:', id);
+                      console.log(`[CLS] HTML:`, html);
+                    }
+                  } catch (e) { 
+                    console.warn('[CLS] Could not access shift source:', e.message);
+                  }
+                });
+              } else {
+                console.log('[CLS] No specific source nodes identified for this shift');
+              }
+            }
+          }
+        });
+        po.observe({type: 'layout-shift', buffered: true});
+        window.__CLS_DEBUG = { getTotal: () => cls, entries };
+        console.log('[CLS] Layout Shift monitoring started. Check console for shift reports.');
+      })();
+    </script>
   </body>
 </html>
