@@ -52,7 +52,7 @@ export async function upsertTransactions(userId: string, transactions: any[], us
         const userRes = await sb.auth.getUser();
         const current = userRes?.data?.user;
         if (current && current.id === userId) {
-          const meta = (current.user_metadata && typeof current.user_metadata === 'object' ? current.user_metadata : (current.raw_user_meta_data && typeof current.raw_user_meta_data === 'object' ? current.raw_user_meta_data : {})) as Record<string, any>;
+          const meta = (current.user_metadata && typeof current.user_metadata === 'object' ? current.user_metadata : {}) as Record<string, any>;
           // Look for common display name fields in metadata
           derivedUserName = meta.name || meta.full_name || meta.fullName || meta.first_name || meta.firstName || meta.given_name || meta.givenName || meta.preferred_username || null;
           // If still not found, fall back to email
