@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
+import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { ExpensesDetailView } from './components/ExpensesDetailView';
 import { RecommendationsView } from './components/RecommendationsView';
 import { categorizeTransactions, generateRecommendations, identifyRecurringTransactions, parseTransactions, explainTransaction, analyzeMinorRecurringTransactions } from './services/geminiService';
@@ -427,7 +428,9 @@ const App: React.FC = () => {
         </div>
 
 
-        {!processedData && !isLoading && (
+        {isLoading && <DashboardSkeleton />}
+
+        {!isLoading && !processedData && (
           <div className="flex flex-col items-center justify-center text-center h-[calc(100vh-200px)] border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 mt-4">
             <FileUp className="w-16 h-16 text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold text-gray-600">Upload Your Transaction Files</h2>
@@ -435,28 +438,9 @@ const App: React.FC = () => {
             <p className="text-sm text-gray-400 mt-1">Upload your bank statement files (.csv).</p>
           </div>
         )}
-
-        {isLoading && (
-             <div className="flex flex-col items-center justify-center text-center h-[calc(100vh-200px)] mt-4">
-                <Loader className="w-16 h-16 text-blue-500 animate-spin mb-4" />
-                <h2 className="text-2xl font-semibold text-gray-600">{loadingMessage}</h2>
-                <p className="text-gray-500 mt-2">Our AI is working on your data. This may take a moment.</p>
-                {progress && progress.total > 1 && (
-                    <div className="w-full max-w-md mt-4">
-                         <div className="bg-gray-200 rounded-full h-2.5">
-                            <div 
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                                style={{ width: `${(progress.value / progress.total) * 100}%` }}>
-                            </div>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-2 font-medium">{progress.value} of {progress.total} chunks processed</p>
-                    </div>
-                )}
-             </div>
-        )}
         
         <main className="mt-6">
-          {view === 'dashboard' && processedData && (
+          {view === 'dashboard' && processedData && !isLoading && (
             <Dashboard
               processedData={processedData}
               recurringExpenses={recurringExpenses}
