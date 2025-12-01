@@ -13,6 +13,7 @@ import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetail
 import { upsertTransactions } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
+import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 
 type View = 'dashboard' | 'expenses' | 'recommendations';
 
@@ -501,6 +502,7 @@ const App: React.FC = () => {
             expense={selectedRecurringExpense}
             allTransactions={allTransactions}
         />
+        <SpeedInsightsWrapper />
       </div>
     </div>
   );
