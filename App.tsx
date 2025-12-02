@@ -52,38 +52,35 @@ const App: React.FC = () => {
     setView('dashboard');
   };
 
+  const lastFetchedUserId = React.useRef<string | null>(null);
+
   // Called from SupabaseAuth (and elsewhere) when the auth state changes.
   // If the user signs out or a different user signs in, clear app state and load persisted data for the new user.
   const handleAuthChange = useCallback(async (u: { id: string | null; email?: string | null; firstName?: string | null }) => {
     const newUser = u && u.id ? u : null;
     
-    // Use functional update to access latest user state without adding it to dependency array
     setUser(prevUser => {
         // If signing out or switching accounts, clear previous user's data
-        if (!newUser || (prevUser && newUser && prevUser.id !== newUser.id)) {
-            // We can't call clearUserData() directly inside the setter because it triggers other state updates.
-            // Instead, we'll trigger a side effect or just reset state here if possible.
-            // Since clearUserData sets many states, it's better to do it outside.
-            // But we need the current user.
+        if (!newUser && prevUser) {
+            return null;
+        }
+        // If user details changed, update them
+        if (JSON.stringify(prevUser) !== JSON.stringify(newUser)) {
             return newUser;
         }
-        return newUser;
+        return prevUser;
     });
 
-    // We need to check if we should clear data. 
-    // Since we can't easily access the *current* user state inside this callback without adding it to deps (which causes re-renders),
-    // we will rely on the fact that if newUser is null, we are signing out.
-    // If newUser is different from current user... that's harder.
-    // Let's just clear data if newUser is null.
     if (!newUser) {
-        clearUserData();
+        if (lastFetchedUserId.current !== null) {
+            clearUserData();
+            lastFetchedUserId.current = null;
+        }
     } else {
-        // If we are logging in (newUser exists), we might be switching users.
-        // Ideally we should check against current user, but for now let's assume if we get a user, we load their data.
-        // If the ID is different, the previous data will be overwritten anyway.
-        
-        // Fetch persisted transactions
-        if (newUser.id) {
+        // Only fetch if we haven't fetched for this user yet to avoid double-fetching
+        if (lastFetchedUserId.current !== newUser.id) {
+            lastFetchedUserId.current = newUser.id;
+            
             try {
                 setIsLoading(true);
                 setLoadingMessage('Loading saved transactions...');
@@ -106,10 +103,27 @@ const App: React.FC = () => {
   }, []); // Empty dependency array to keep it stable
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
+    let mounted = true;
+
+    // Set up the listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (!mounted) return;
+        
+        if (session?.user) {
+             let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
+             handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+        } else {
+             handleAuthChange({ id: null, email: null, firstName: null });
+        }
+        setIsAuthChecking(false);
+    });
+
+    // Also check the session immediately in case the listener doesn't fire right away (though it usually does for initial state)
     const initAuth = async () => {
       try {
-        const supabase = getSupabaseClient();
         const { data: { session }, error } = await supabase.auth.getSession();
+        if (!mounted) return;
         if (error) throw error;
         
         if (session?.user) {
@@ -117,41 +131,36 @@ const App: React.FC = () => {
             if (!firstNameFromMeta) {
                 try {
                     const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
-                    if (profile) {
+                    if (profile && mounted) {
                         firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
                     }
                 } catch (e) {
                     // ignore
                 }
             }
-            handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+            if (mounted) {
+                handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+            }
         }
       } catch (e) {
         console.warn("Auth initialization failed:", e);
       } finally {
-        setIsAuthChecking(false);
+        if (mounted) setIsAuthChecking(false);
       }
-
-      const supabase = getSupabaseClient();
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-             let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-             // We can skip the profile fetch here for speed, or do it if needed. 
-             // For now, rely on what we have or what handleAuthChange does.
-             handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
-        } else {
-             handleAuthChange({ id: null, email: null, firstName: null });
-        }
-        setIsAuthChecking(false);
-      });
-      return () => subscription.unsubscribe();
     };
     
     initAuth();
     
     // Safety timeout in case auth hangs
-    const timeout = setTimeout(() => setIsAuthChecking(false), 5000);
-    return () => clearTimeout(timeout);
+    const timeout = setTimeout(() => {
+        if (mounted) setIsAuthChecking(false);
+    }, 5000);
+
+    return () => {
+        mounted = false;
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+    };
   }, [handleAuthChange]);
 
   const handleSignOut = async () => {

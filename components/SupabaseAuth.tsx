@@ -34,12 +34,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
       } catch (e) {
         console.warn('Could not upsert profile after signup:', e);
       }
-
-      // We don't need to set local user state or call onAuth manually if App.tsx is listening.
-      // But calling onAuth provides immediate feedback.
-      const firstNameMeta = (data.user.user_metadata && (data.user.user_metadata.first_name || data.user.user_metadata.firstName)) || null;
-      const displayName = firstNameMeta || firstName || null;
-      onAuth({ id: data.user.id, email: data.user.email ?? null, firstName: displayName });
+      // App.tsx listener will pick up the auth change automatically.
     }
     setLoading(false);
   };
@@ -47,16 +42,11 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const handleSignIn = async () => {
     setLoading(true);
     setError(null);
-    const { data, error } = await getClient().auth.signInWithPassword({ email, password });
+    const { error } = await getClient().auth.signInWithPassword({ email, password });
     if (error) {
         setError(error.message);
-    } else if (data.user) {
-        // Success! App.tsx listener will pick this up, but we can also call onAuth to be faster.
-        // We need to fetch the profile name if it's not in metadata.
-        let firstNameFromMeta = (data.user.user_metadata && (data.user.user_metadata.first_name || data.user.user_metadata.firstName)) || null;
-        // We skip the profile fetch here to avoid 404s and let App.tsx handle it if needed, or just use what we have.
-        onAuth({ id: data.user.id, email: data.user.email ?? null, firstName: firstNameFromMeta });
     }
+    // App.tsx listener will pick up the auth change automatically.
     setLoading(false);
   };
 
