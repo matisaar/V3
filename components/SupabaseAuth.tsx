@@ -83,6 +83,8 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
                     <input
                       type="text"
                       id="firstName"
+                      name="firstName"
+                      autoComplete="given-name"
                       value={firstName}
                       onChange={e => setFirstName(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
@@ -102,6 +104,8 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
                     <input
                       type="email"
                       id="email"
+                      name="email"
+                      autoComplete="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
@@ -121,6 +125,8 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
                     <input
                       type="password"
                       id="password"
+                      name="password"
+                      autoComplete="current-password"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
