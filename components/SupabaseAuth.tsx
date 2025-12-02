@@ -7,63 +7,12 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
-  const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const sessionRes = await getClient().auth.getSession();
-        const sessUser = sessionRes?.data?.session?.user;
-        if (sessUser) {
-          let firstNameFromMeta = (sessUser.user_metadata && (sessUser.user_metadata.first_name || sessUser.user_metadata.firstName)) || null;
-          if (!firstNameFromMeta) {
-            try {
-              const { data: profile } = await getClient().from('profiles').select('full_name,first_name,name').eq('id', sessUser.id).maybeSingle();
-              if (profile) {
-                firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
-              }
-            } catch (e) {
-              // ignore
-            }
-          }
-          setUser(sessUser);
-          onAuth({ id: sessUser.id, email: sessUser.email ?? null, firstName: firstNameFromMeta });
-        }
-      } catch (e) {
-        console.warn('Error initializing supabase session:', e);
-      }
-    };
-    init();
-
-    const { data: listener } = getClient().auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        if (session?.user) {
-          let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-          if (!firstNameFromMeta) {
-            try {
-              const { data: profile } = await getClient().from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
-              if (profile) {
-                firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
-              }
-            } catch (e) {
-              // ignore
-            }
-          }
-          setUser(session.user);
-          onAuth({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
-        } else {
-          setUser(null);
-          onAuth({ id: null, email: null, firstName: null });
-        }
-      })();
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, [onAuth]);
+  // Removed useEffect that calls getSession and onAuthStateChange.
+  // App.tsx handles the global auth state and listener.
+  // This component is now just a presentation layer for the login form.
 
   const handleSignUp = async () => {
     setLoading(true);
@@ -86,7 +35,8 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
         console.warn('Could not upsert profile after signup:', e);
       }
 
-      setUser(data.user);
+      // We don't need to set local user state or call onAuth manually if App.tsx is listening.
+      // But calling onAuth provides immediate feedback.
       const firstNameMeta = (data.user.user_metadata && (data.user.user_metadata.first_name || data.user.user_metadata.firstName)) || null;
       const displayName = firstNameMeta || firstName || null;
       onAuth({ id: data.user.id, email: data.user.email ?? null, firstName: displayName });
@@ -97,14 +47,21 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const handleSignIn = async () => {
     setLoading(true);
     setError(null);
-    const { error } = await getClient().auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+    const { data, error } = await getClient().auth.signInWithPassword({ email, password });
+    if (error) {
+        setError(error.message);
+    } else if (data.user) {
+        // Success! App.tsx listener will pick this up, but we can also call onAuth to be faster.
+        // We need to fetch the profile name if it's not in metadata.
+        let firstNameFromMeta = (data.user.user_metadata && (data.user.user_metadata.first_name || data.user.user_metadata.firstName)) || null;
+        // We skip the profile fetch here to avoid 404s and let App.tsx handle it if needed, or just use what we have.
+        onAuth({ id: data.user.id, email: data.user.email ?? null, firstName: firstNameFromMeta });
+    }
     setLoading(false);
   };
 
   const handleSignOut = async () => {
     await getClient().auth.signOut();
-    setUser(null);
     onAuth({ id: null, email: null });
   };
 
@@ -123,13 +80,6 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
           </div>
         </div>
         <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200">
-          {user ? (
-            <div className="flex flex-col items-center">
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome!</h2>
-              <div className="mb-4 text-gray-600">Logged in as <b>{user.email}</b></div>
-              <button className="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm hover:bg-red-700 transition-colors duration-200" onClick={handleSignOut}>Sign Out</button>
-            </div>
-          ) : (
             <>
               <h2 className="text-2xl font-semibold text-center text-gray-700 mb-1">Welcome Back!</h2>
               <p className="text-sm text-gray-500 text-center mb-6">Sign in to access your dashboard.</p>
@@ -228,7 +178,6 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
                 </div>
               </form>
             </>
-          )}
           {error && <div className="text-red-600 mt-2 text-center">{error}</div>}
         </div>
         <p className="text-center text-sm text-gray-500 mt-8">

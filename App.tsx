@@ -136,6 +136,8 @@ const App: React.FC = () => {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
              let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
+             // We can skip the profile fetch here for speed, or do it if needed. 
+             // For now, rely on what we have or what handleAuthChange does.
              handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
         } else {
              handleAuthChange({ id: null, email: null, firstName: null });
