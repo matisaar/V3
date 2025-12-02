@@ -135,7 +135,7 @@ const App: React.FC = () => {
                         firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
                     }
                 } catch (e) {
-                    // ignore
+                    // ignore - profiles table might not exist
                 }
             }
             if (mounted) {

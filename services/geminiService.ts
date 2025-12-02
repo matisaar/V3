@@ -209,15 +209,29 @@ export const categorizeTransactions = async (
       const resultChunk = JSON.parse(jsonString);
       
       if (Array.isArray(resultChunk)) {
-          const processedChunk = resultChunk.map((t: any) => ({
-              ...t,
-              date: new Date(t.date),
-              amount: Number(t.amount),
+          // Map back to original objects to preserve valid Date objects and other fields
+          // We use the ID to match, assuming Gemini returns the correct IDs.
+          // If ID is missing or mismatch, we might lose data, so we iterate over the *original* chunk
+          // and try to find the category from the result.
+          
+          const categoryMap = new Map<string, string>();
+          resultChunk.forEach((r: any) => {
+              if (r.id && r.category) {
+                  categoryMap.set(r.id, r.category);
+              }
+          });
+
+          const processedChunk = chunk.map(originalTx => ({
+              ...originalTx,
+              category: categoryMap.get(originalTx.id) || 'Uncategorized', // Fallback if Gemini missed it
           }));
+          
           categorizedTransactions.push(...processedChunk);
       }
     } catch (e) {
       console.error("Error processing chunk:", e, response.text);
+      // Fallback: add the chunk as uncategorized so we don't lose data
+      categorizedTransactions.push(...chunk.map(t => ({ ...t, category: 'Uncategorized' })));
     }
 
     onProgress(Math.min(i + CHUNK_SIZE, transactions.length), transactions.length);
