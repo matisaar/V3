@@ -122,6 +122,11 @@ export async function fetchTransactionsByUser(userId: string) {
 export async function upsertRecurringExpenses(userId: string, recurringExpenses: any[]) {
   const sb = getSupabaseClient();
   try {
+    if (!recurringExpenses || recurringExpenses.length === 0) {
+        console.log('No recurring expenses to save.');
+        return [];
+    }
+
     // First delete existing recurring expenses for this user to avoid duplicates
     // since we don't have stable IDs for them from the analysis service
     const { error: deleteError } = await sb.from('recurring_expenses').delete().eq('user_id', userId);

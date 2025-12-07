@@ -8,6 +8,8 @@ interface RecurringExpensesProps {
     hasMinorExpenses: boolean;
     onInvestigate: () => void;
     isInvestigating: boolean;
+    onSave?: () => void;
+    isSaving?: boolean;
 }
 
 const formatCurrency = (amount: number) => {
@@ -50,12 +52,24 @@ const iconBgColors: { [key: string]: string } = {
 
 const getIconBgColor = (category: string) => iconBgColors[category] || iconBgColors['Default'];
 
-export const RecurringExpenses: React.FC<RecurringExpensesProps> = ({ data, onExpenseClick, hasMinorExpenses, onInvestigate, isInvestigating }) => {
+export const RecurringExpenses: React.FC<RecurringExpensesProps> = ({ data, onExpenseClick, hasMinorExpenses, onInvestigate, isInvestigating, onSave, isSaving }) => {
     return (
         <div>
-            <div className="flex items-center text-gray-800 mb-6">
-                <Repeat className="w-6 h-6 mr-3" />
-                <h2 className="font-semibold text-xl">Recurring Payments</h2>
+            <div className="flex items-center justify-between text-gray-800 mb-6">
+                <div className="flex items-center">
+                    <Repeat className="w-6 h-6 mr-3" />
+                    <h2 className="font-semibold text-xl">Recurring Payments</h2>
+                </div>
+                {onSave && (
+                    <button 
+                        onClick={onSave}
+                        disabled={isSaving}
+                        className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                    >
+                        {isSaving ? <Loader className="w-4 h-4 animate-spin mr-1" /> : null}
+                        {isSaving ? 'Saving...' : 'Save to Cloud'}
+                    </button>
+                )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {data.map((item, index) => (

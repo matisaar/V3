@@ -13,6 +13,8 @@ interface DashboardProps {
     minorRecurringTransactions: Transaction[] | null;
     onInvestigateMinorExpenses: () => void;
     isInvestigatingMinorExpenses: boolean;
+    onSaveRecurring?: () => void;
+    isSavingRecurring?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -21,7 +23,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onRecurringExpenseClick,
     minorRecurringTransactions,
     onInvestigateMinorExpenses,
-    isInvestigatingMinorExpenses 
+    isInvestigatingMinorExpenses,
+    onSaveRecurring,
+    isSavingRecurring
 }) => {
     const hasMajorExpenses = recurringExpenses && recurringExpenses.length > 0;
     const hasMinorExpenses = minorRecurringTransactions && minorRecurringTransactions.length > 0;
@@ -70,6 +74,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             hasMinorExpenses={!!hasMinorExpenses}
                             onInvestigate={onInvestigateMinorExpenses}
                             isInvestigating={isInvestigatingMinorExpenses}
+                            onSave={onSaveRecurring}
+                            isSaving={isSavingRecurring}
                         />
                     </div>
                 )}
