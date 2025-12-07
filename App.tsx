@@ -271,23 +271,6 @@ const App: React.FC = () => {
     setRecommendations(null);
   }, []);
 
-  const [isSavingRecurring, setIsSavingRecurring] = useState(false);
-
-  const handleSaveRecurring = async () => {
-    if (!recurringExpenses || recurringExpenses.length === 0) return;
-    setIsSavingRecurring(true);
-    try {
-        const uid = user?.id || 'anonymous';
-        await upsertRecurringExpenses(uid, recurringExpenses);
-        alert('Successfully saved recurring expenses to Supabase!');
-    } catch (e) {
-        console.error(e);
-        alert('Failed to save recurring expenses. Check console for details.');
-    } finally {
-        setIsSavingRecurring(false);
-    }
-  };
-
   useEffect(() => {
     if (allTransactions && allTransactions.length > 0) {
         processAndSetData(allTransactions);
@@ -578,8 +561,6 @@ const App: React.FC = () => {
                 onInvestigateMinorExpenses={handleInvestigateMinorExpenses}
                 isInvestigatingMinorExpenses={isInvestigating}
                 minorRecurringTransactions={minorRecurringTransactions}
-                onSaveRecurring={handleSaveRecurring}
-                isSavingRecurring={isSavingRecurring}
               />
             )}
 
