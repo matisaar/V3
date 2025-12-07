@@ -192,7 +192,6 @@ const App: React.FC = () => {
 
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(MOCK_RECOMMENDATIONS);
   const [isGeneratingRecs, setIsGeneratingRecs] = useState<boolean>(false);
-  const [recsError, setRecsError] = useState<string | null>(null);
 
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState<boolean>(false);
   const [transactionExplanation, setTransactionExplanation] = useState<TransactionExplanation | null>(null);
@@ -442,21 +441,6 @@ const App: React.FC = () => {
     // Data will be re-processed by useEffect
   };
 
-  const handleGenerateRecommendations = async () => {
-    if (!processedData || !allTransactions) return;
-    setIsGeneratingRecs(true);
-    setRecsError(null);
-    try {
-      const recs = await generateRecommendations(processedData, allTransactions);
-      setRecommendations(recs);
-    } catch(err) {
-      console.error(err);
-      setRecsError('Could not generate recommendations. The API may be unavailable or the API key is invalid.');
-    } finally {
-      setIsGeneratingRecs(false);
-    }
-  };
-
   const handleExplainTransaction = async (transactionId: string) => {
     const transaction = allTransactions.find(t => t.id === transactionId);
     if (!transaction) return;
@@ -590,14 +574,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {view === 'expenses' && (
-              <ExpensesDetailView
-                transactions={allTransactions}
-                onUpdateTransaction={handleTransactionUpdate}
-                onExplainTransaction={handleExplainTransaction}
-              />
-            )}
-            
             {view === 'expenses' && (
               <ExpensesDetailView
                 transactions={allTransactions}
