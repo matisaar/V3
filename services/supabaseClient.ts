@@ -62,22 +62,6 @@ export async function upsertTransactions(userId: string, transactions: any[], us
         // ignore — not critical
         console.warn('Could not read auth user metadata when upserting transactions:', e);
       }
-
-      // If we still don't have a display name, try a `profiles` table (if present)
-      if (!derivedUserName && userId !== 'anonymous') {
-        try {
-          // We use maybeSingle() which returns null if no rows, but might throw if table missing?
-          // Actually, if table is missing, it returns an error.
-          const { data: profile, error: profileErr } = await sb.from('profiles').select('full_name,first_name,name').eq('id', userId).maybeSingle();
-          
-          if (profile) {
-            derivedUserName = profile.full_name || profile.first_name || profile.name || derivedUserName;
-          }
-          // We intentionally ignore profileErr here to avoid log noise if the table doesn't exist.
-        } catch (e) {
-          // ignore — profiles table may not exist
-        }
-      }
     }
 
     // Expect a table `transactions` with a primary key `id` and a `user_id` column
