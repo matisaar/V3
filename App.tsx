@@ -560,7 +560,7 @@ const App: React.FC = () => {
                           view === 'latte-factor' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
                       }`}
                   >
-                      Latte Factor
+                      Money Leaks
                   </button>
               </div>
           </div>

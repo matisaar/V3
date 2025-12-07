@@ -77,7 +77,7 @@ export const LatteFactorView: React.FC<LatteFactorViewProps> = ({ opportunities,
             <div className="flex flex-col items-center justify-center h-96 text-gray-500">
                 <Loader className="w-12 h-12 animate-spin text-blue-500 mb-4" />
                 <p className="text-lg font-medium">Analyzing your spending habits...</p>
-                <p className="text-sm">Looking for that "Latte Factor"</p>
+                <p className="text-sm">Identifying potential money leaks...</p>
             </div>
         );
     }
@@ -86,7 +86,7 @@ export const LatteFactorView: React.FC<LatteFactorViewProps> = ({ opportunities,
         return (
             <div className="flex flex-col items-center justify-center h-96 text-gray-500">
                 <Coffee className="w-16 h-16 text-gray-300 mb-4" />
-                <h3 className="text-xl font-semibold text-gray-700">No "Latte Factor" Found</h3>
+                <h3 className="text-xl font-semibold text-gray-700">No Money Leaks Found</h3>
                 <p className="max-w-md text-center mt-2">
                     We couldn't find any obvious habitual discretionary spending. You might be a budgeting pro already!
                 </p>
@@ -108,7 +108,7 @@ export const LatteFactorView: React.FC<LatteFactorViewProps> = ({ opportunities,
                         <Coffee className="w-8 h-8 text-orange-600" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800">The Latte Factor</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">Money Leaks</h2>
                         <p className="text-gray-600 mt-1 max-w-2xl">
                             Small, frequent purchases add up to massive amounts over time. 
                             Select the habits below to see how much wealth you could build by investing that money instead.

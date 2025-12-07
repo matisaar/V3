@@ -6,7 +6,7 @@ import { getGeminiAI } from './geminiClient';
 // Wrap the client so existing calls (ai.models.generateContent) keep working.
 const ai = {
   models: {
-    generateContent: (...args: any[]) => getGeminiAI().models.generateContent(...args),
+    generateContent: (...args: any[]) => (getGeminiAI().models as any).generateContent(...args),
   }
 };
 
@@ -545,8 +545,8 @@ export const analyzeLatteFactor = async (
   // Sample the data to avoid token limits, but prioritize recent ones
   const recentExpenses = expenses.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 200);
 
-  const prompt = `Analyze the following list of expense transactions to identify "Latte Factor" items. 
-  The "Latte Factor" refers to small, frequent, or habitual discretionary spending that adds up over time (e.g., coffee, dining out, snacks, subscriptions, ride-shares).
+  const prompt = `Analyze the following list of expense transactions to identify "Money Leaks" or habitual discretionary spending. 
+  These are small, frequent, or habitual purchases that add up over time and might be considered "unnecessary" or "impulsive" (e.g., coffee, dining out, snacks, subscriptions, ride-shares, random shopping).
   
   Look for patterns of spending that seem:
   1. Discretionary (not rent, utilities, insurance).
@@ -560,7 +560,7 @@ export const analyzeLatteFactor = async (
   - "frequency": 'Daily', 'Weekly', 'Monthly', or 'Irregular'.
   - "monthlyCost": Estimated total cost per month based on the frequency and amount.
   - "annualCost": Estimated total cost per year.
-  - "reason": A brief explanation of why this is a "Latte Factor" candidate (e.g., "Frequent small purchases at coffee shops").
+  - "reason": A brief explanation of why this is a "Money Leak" (e.g., "Frequent small purchases at coffee shops").
 
   Return a JSON array of these items. If none found, return empty array.
 
