@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LatteFactorOpportunity } from '../types';
-import { Coffee, TrendingUp, DollarSign, Calendar, ArrowRight, Loader } from 'lucide-react';
+import { Coffee, TrendingUp, DollarSign, Calendar, ArrowRight, Loader, CheckCircle } from 'lucide-react';
 
 interface LatteFactorViewProps {
     opportunities: LatteFactorOpportunity[] | null;
@@ -129,7 +129,7 @@ export const LatteFactorView: React.FC<LatteFactorViewProps> = ({ opportunities,
                             <div 
                                 key={item.id}
                                 onClick={() => toggleItem(item.id)}
-                                className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${
+                                className={`relative p-4 pr-12 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${
                                     selectedItems.has(item.id) 
                                         ? 'bg-white border-blue-500 shadow-sm' 
                                         : 'bg-gray-50 border-transparent opacity-70'
@@ -155,12 +155,14 @@ export const LatteFactorView: React.FC<LatteFactorViewProps> = ({ opportunities,
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.monthlyCost)}</p>
+                                        <p className={`text-2xl font-bold ${selectedItems.has(item.id) ? 'text-blue-600' : 'text-gray-900'}`}>{formatCurrency(item.monthlyCost)}</p>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">Per Month</p>
                                     </div>
                                 </div>
                                 {selectedItems.has(item.id) && (
-                                    <div className="absolute top-4 right-4 w-4 h-4 bg-blue-500 rounded-full" />
+                                    <div className="absolute top-4 right-4">
+                                        <CheckCircle className="w-6 h-6 text-blue-500 fill-blue-50" />
+                                    </div>
                                 )}
                             </div>
                         ))}
