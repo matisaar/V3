@@ -3,7 +3,6 @@ import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { ExpensesDetailView } from './components/ExpensesDetailView';
-import { RecommendationsView } from './components/RecommendationsView';
 import { categorizeTransactions, generateRecommendations, identifyRecurringTransactions, parseTransactions, explainTransaction, analyzeMinorRecurringTransactions, analyzeLatteFactor } from './services/geminiService';
 import { Transaction, PeriodSummary, ProcessedData, Recommendation, RecurringExpense, TransactionExplanation, LatteFactorOpportunity } from './types';
 import { FileUp, Loader, AlertCircle } from 'lucide-react';
@@ -15,9 +14,9 @@ import { upsertTransactions, upsertRecurringExpenses } from './services/supabase
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
-import { LatteFactorView } from './components/LatteFactorView';
+import { InsightsView } from './components/InsightsView';
 
-type View = 'dashboard' | 'expenses' | 'recommendations' | 'latte-factor';
+type View = 'dashboard' | 'expenses' | 'insights';
 
 const parseFileContent = async (text: string, fileName: string): Promise<Omit<Transaction, 'category'>[]> => {
     try {
@@ -492,16 +491,26 @@ const App: React.FC = () => {
     setTimeout(() => setSelectedRecurringExpense(null), 300);
   };
 
-  const handleAnalyzeLatteFactor = async () => {
+  const handleAnalyzeInsights = async () => {
     if (!allTransactions || allTransactions.length === 0) return;
+    
     setIsAnalyzingLatteFactor(true);
+    setIsGeneratingRecs(true);
+    
     try {
-        const opportunities = await analyzeLatteFactor(allTransactions);
+        // Run both analyses in parallel
+        const [opportunities, recs] = await Promise.all([
+            analyzeLatteFactor(allTransactions),
+            processedData ? generateRecommendations(processedData, allTransactions) : Promise.resolve([])
+        ]);
+        
         setLatteFactorData(opportunities);
+        setRecommendations(recs);
     } catch (e) {
-        console.error("Latte Factor analysis failed:", e);
+        console.error("Insights analysis failed:", e);
     } finally {
         setIsAnalyzingLatteFactor(false);
+        setIsGeneratingRecs(false);
     }
   };
 
@@ -547,20 +556,12 @@ const App: React.FC = () => {
                       Expenses
                   </button>
                   <button
-                      onClick={() => setView('recommendations')}
+                      onClick={() => setView('insights')}
                       className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
-                          view === 'recommendations' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                          view === 'insights' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
                       }`}
                   >
-                      Recommendations
-                  </button>
-                  <button
-                      onClick={() => setView('latte-factor')}
-                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
-                          view === 'latte-factor' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
-                      }`}
-                  >
-                      Money Leaks
+                      Insights
                   </button>
               </div>
           </div>
@@ -597,34 +598,24 @@ const App: React.FC = () => {
               />
             )}
             
-            {view === 'recommendations' && (
-              <RecommendationsView 
-                processedData={processedData}
-                onGenerate={handleGenerateRecommendations}
-                recommendations={recommendations}
-                isLoading={isGeneratingRecs}
-                error={recsError}
-                hasData={allTransactions.length > 0 && allTransactions !== MOCK_TRANSACTIONS}
-                allTransactions={allTransactions}
+            {view === 'expenses' && (
+              <ExpensesDetailView
+                transactions={allTransactions}
+                onUpdateTransaction={handleTransactionUpdate}
+                onExplainTransaction={handleExplainTransaction}
               />
             )}
-
-            {view === 'latte-factor' && (
-                <LatteFactorView
+            
+            {view === 'insights' && (
+                <InsightsView
                     opportunities={latteFactorData}
-                    isLoading={isAnalyzingLatteFactor}
-                    onAnalyze={handleAnalyzeLatteFactor}
+                    recommendations={recommendations}
+                    processedData={processedData}
+                    isLoading={isAnalyzingLatteFactor || isGeneratingRecs}
+                    onAnalyze={handleAnalyzeInsights}
                 />
             )}
           </main>
-
-          <TransactionDetailModal
-              isOpen={isExplanationModalOpen}
-              onClose={handleCloseExplanationModal}
-              isLoading={isExplaining}
-              error={explanationError}
-              explanationResult={transactionExplanation}
-          />
 
           <RecurringExpenseDetailModal
               isOpen={isRecurringExpenseModalOpen}
