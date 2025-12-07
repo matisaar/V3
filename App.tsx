@@ -340,6 +340,7 @@ const App: React.FC = () => {
             try {
                 const uid = user?.id || 'anonymous';
                 await upsertRecurringExpenses(uid, majorRecurringExpenses);
+                console.log('Successfully saved recurring expenses to Supabase');
             } catch (e) {
                 console.warn('Supabase upsertRecurringExpenses failed (non-fatal):', e);
             }

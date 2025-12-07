@@ -139,7 +139,7 @@ export async function upsertRecurringExpenses(userId: string, recurringExpenses:
       transaction_count: re.transactionCount,
     }));
     
-    const { data, error } = await sb.from('recurring_expenses').insert(payload);
+    const { data, error } = await sb.from('recurring_expenses').insert(payload).select();
     if (error) throw error;
     return data;
   } catch (e) {
