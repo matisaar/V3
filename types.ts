@@ -61,3 +61,14 @@ export interface BucketOfLife {
     name: string;
     keywords: string[];
 }
+
+export interface LatteFactorOpportunity {
+    id: string;
+    name: string;
+    category: string;
+    averageAmount: number;
+    frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Irregular';
+    monthlyCost: number;
+    annualCost: number;
+    reason: string;
+}

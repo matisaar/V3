@@ -1,6 +1,6 @@
 // FIX: Create services/geminiService.ts to implement AI functionalities and resolve module not found errors.
 import { GoogleGenAI, Type } from "@google/genai";
-import { Transaction, ProcessedData, Recommendation, RecurringExpense, TransactionExplanation } from '../types';
+import { Transaction, ProcessedData, Recommendation, RecurringExpense, TransactionExplanation, LatteFactorOpportunity } from '../types';
 import { getGeminiAI } from './geminiClient';
 
 // Wrap the client so existing calls (ai.models.generateContent) keep working.
@@ -532,4 +532,73 @@ export const generateCancellationSteps = async (
   }
 
   return steps;
+};
+
+export const analyzeLatteFactor = async (
+  transactions: Transaction[]
+): Promise<LatteFactorOpportunity[]> => {
+  const model = 'gemini-2.5-flash';
+  
+  // Filter for expenses only
+  const expenses = transactions.filter(t => t.type === 'Expense');
+  
+  // Sample the data to avoid token limits, but prioritize recent ones
+  const recentExpenses = expenses.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 200);
+
+  const prompt = `Analyze the following list of expense transactions to identify "Latte Factor" items. 
+  The "Latte Factor" refers to small, frequent, or habitual discretionary spending that adds up over time (e.g., coffee, dining out, snacks, subscriptions, ride-shares).
+  
+  Look for patterns of spending that seem:
+  1. Discretionary (not rent, utilities, insurance).
+  2. Habitual (happens repeatedly).
+  3. Potentially unnecessary or reducible.
+
+  For each identified habit, provide:
+  - "name": A short name (e.g., "Daily Coffee", "Uber Rides").
+  - "category": The category it belongs to.
+  - "averageAmount": The typical amount per transaction.
+  - "frequency": 'Daily', 'Weekly', 'Monthly', or 'Irregular'.
+  - "monthlyCost": Estimated total cost per month based on the frequency and amount.
+  - "annualCost": Estimated total cost per year.
+  - "reason": A brief explanation of why this is a "Latte Factor" candidate (e.g., "Frequent small purchases at coffee shops").
+
+  Return a JSON array of these items. If none found, return empty array.
+
+  Transactions:
+  ${JSON.stringify(recentExpenses.map(t => ({ desc: t.description, amt: t.amount, cat: t.category, date: t.date.toISOString().split('T')[0] })))}
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.1,
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            category: { type: Type.STRING },
+            averageAmount: { type: Type.NUMBER },
+            frequency: { type: Type.STRING, enum: ['Daily', 'Weekly', 'Monthly', 'Irregular'] },
+            monthlyCost: { type: Type.NUMBER },
+            annualCost: { type: Type.NUMBER },
+            reason: { type: Type.STRING },
+          },
+          required: ['name', 'category', 'averageAmount', 'frequency', 'monthlyCost', 'annualCost', 'reason'],
+        }
+      }
+    }
+  });
+
+  try {
+    const jsonString = response.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
+    const result = JSON.parse(jsonString);
+    return result.map((item: any, index: number) => ({ ...item, id: `lf-${index}` }));
+  } catch (e) {
+    console.error("Failed to parse Latte Factor JSON:", e);
+    return [];
+  }
 };

@@ -4,8 +4,8 @@ import { Dashboard } from './components/Dashboard';
 import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { ExpensesDetailView } from './components/ExpensesDetailView';
 import { RecommendationsView } from './components/RecommendationsView';
-import { categorizeTransactions, generateRecommendations, identifyRecurringTransactions, parseTransactions, explainTransaction, analyzeMinorRecurringTransactions } from './services/geminiService';
-import { Transaction, PeriodSummary, ProcessedData, Recommendation, RecurringExpense, TransactionExplanation } from './types';
+import { categorizeTransactions, generateRecommendations, identifyRecurringTransactions, parseTransactions, explainTransaction, analyzeMinorRecurringTransactions, analyzeLatteFactor } from './services/geminiService';
+import { Transaction, PeriodSummary, ProcessedData, Recommendation, RecurringExpense, TransactionExplanation, LatteFactorOpportunity } from './types';
 import { FileUp, Loader, AlertCircle } from 'lucide-react';
 // FIX: Corrected typo in MOCK_RECOMMENDATIONS import.
 import { MOCK_DATA, MOCK_TRANSACTIONS, MOCK_RECOMMENDATIONS, MOCK_RECURRING_EXPENSES } from './constants';
@@ -15,8 +15,9 @@ import { upsertTransactions, upsertRecurringExpenses } from './services/supabase
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
+import { LatteFactorView } from './components/LatteFactorView';
 
-type View = 'dashboard' | 'expenses' | 'recommendations';
+type View = 'dashboard' | 'expenses' | 'recommendations' | 'latte-factor';
 
 const parseFileContent = async (text: string, fileName: string): Promise<Omit<Transaction, 'category'>[]> => {
     try {
@@ -204,6 +205,9 @@ const App: React.FC = () => {
 
   const [minorRecurringTransactions, setMinorRecurringTransactions] = useState<Transaction[] | null>(null);
   const [isInvestigating, setIsInvestigating] = useState<boolean>(false);
+
+  const [latteFactorData, setLatteFactorData] = useState<LatteFactorOpportunity[] | null>(null);
+  const [isAnalyzingLatteFactor, setIsAnalyzingLatteFactor] = useState<boolean>(false);
   
   const processAndSetData = useCallback((transactions: Transaction[]) => {
     const getStartOfMonth = (d: Date): Date => {
@@ -488,6 +492,19 @@ const App: React.FC = () => {
     setTimeout(() => setSelectedRecurringExpense(null), 300);
   };
 
+  const handleAnalyzeLatteFactor = async () => {
+    if (!allTransactions || allTransactions.length === 0) return;
+    setIsAnalyzingLatteFactor(true);
+    try {
+        const opportunities = await analyzeLatteFactor(allTransactions);
+        setLatteFactorData(opportunities);
+    } catch (e) {
+        console.error("Latte Factor analysis failed:", e);
+    } finally {
+        setIsAnalyzingLatteFactor(false);
+    }
+  };
+
   if (isAuthChecking) {
     return (
       <div className="min-h-screen bg-[#FDFDFD] flex items-center justify-center">
@@ -537,6 +554,14 @@ const App: React.FC = () => {
                   >
                       Recommendations
                   </button>
+                  <button
+                      onClick={() => setView('latte-factor')}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
+                          view === 'latte-factor' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                      Latte Factor
+                  </button>
               </div>
           </div>
 
@@ -582,6 +607,14 @@ const App: React.FC = () => {
                 hasData={allTransactions.length > 0 && allTransactions !== MOCK_TRANSACTIONS}
                 allTransactions={allTransactions}
               />
+            )}
+
+            {view === 'latte-factor' && (
+                <LatteFactorView
+                    opportunities={latteFactorData}
+                    isLoading={isAnalyzingLatteFactor}
+                    onAnalyze={handleAnalyzeLatteFactor}
+                />
             )}
           </main>
 
