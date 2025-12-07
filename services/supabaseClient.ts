@@ -118,3 +118,57 @@ export async function fetchTransactionsByUser(userId: string) {
     throw e;
   }
 }
+
+export async function upsertRecurringExpenses(userId: string, recurringExpenses: any[]) {
+  const sb = getSupabaseClient();
+  try {
+    // First delete existing recurring expenses for this user to avoid duplicates
+    // since we don't have stable IDs for them from the analysis service
+    const { error: deleteError } = await sb.from('recurring_expenses').delete().eq('user_id', userId);
+    if (deleteError) {
+        console.warn('Error clearing old recurring expenses:', deleteError);
+        // Continue anyway, though this might result in duplicates if delete failed but insert succeeds
+    }
+
+    const payload = recurringExpenses.map(re => ({
+      user_id: userId,
+      name: re.name,
+      representative_description: re.representativeDescription,
+      category: re.category,
+      average_amount: re.averageAmount,
+      transaction_count: re.transactionCount,
+    }));
+    
+    const { data, error } = await sb.from('recurring_expenses').insert(payload);
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('Supabase upsertRecurringExpenses failed:', e);
+    throw e;
+  }
+}
+
+export async function fetchRecurringExpensesByUser(userId: string) {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb
+      .from('recurring_expenses')
+      .select('*')
+      .eq('user_id', userId);
+      
+    if (error) throw error;
+    
+    // Map back to camelCase for the app
+    return (data || []).map((row: any) => ({
+      name: row.name,
+      representativeDescription: row.representative_description,
+      category: row.category,
+      averageAmount: row.average_amount,
+      transactionCount: row.transaction_count
+    }));
+  } catch (e) {
+    console.error('Supabase fetchRecurringExpensesByUser failed:', e);
+    throw e;
+  }
+}
+

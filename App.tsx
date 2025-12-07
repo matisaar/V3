@@ -11,7 +11,7 @@ import { FileUp, Loader, AlertCircle } from 'lucide-react';
 import { MOCK_DATA, MOCK_TRANSACTIONS, MOCK_RECOMMENDATIONS, MOCK_RECURRING_EXPENSES } from './constants';
 import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetailModal';
-import { upsertTransactions } from './services/supabaseClient';
+import { upsertTransactions, upsertRecurringExpenses } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
@@ -84,13 +84,19 @@ const App: React.FC = () => {
             try {
                 setIsLoading(true);
                 setLoadingMessage('Loading saved transactions...');
-                const persisted = await (await import('./services/supabaseClient')).fetchTransactionsByUser(newUser.id);
+                const sbClient = await import('./services/supabaseClient');
+                const persisted = await sbClient.fetchTransactionsByUser(newUser.id);
                 if (persisted && persisted.length > 0) {
                     const mapped = persisted.map((tx: any) => ({ ...tx, date: tx.date ? new Date(tx.date) : new Date() }));
                     setAllTransactions(mapped);
                 } else {
                     setAllTransactions([]);
                     setProcessedData(null);
+                }
+
+                const persistedRecurring = await sbClient.fetchRecurringExpensesByUser(newUser.id);
+                if (persistedRecurring && persistedRecurring.length > 0) {
+                    setRecurringExpenses(persistedRecurring);
                 }
             } catch (e) {
                 console.warn('Failed to load persisted transactions for user:', e);
@@ -328,6 +334,17 @@ const App: React.FC = () => {
       try {
         const { majorRecurringExpenses, minorRecurringTransactions } = await identifyRecurringTransactions(categorized);
         setRecurringExpenses(majorRecurringExpenses);
+
+        // Try to persist recurring expenses to Supabase (optional)
+        (async () => {
+            try {
+                const uid = user?.id || 'anonymous';
+                await upsertRecurringExpenses(uid, majorRecurringExpenses);
+            } catch (e) {
+                console.warn('Supabase upsertRecurringExpenses failed (non-fatal):', e);
+            }
+        })();
+
         if (minorRecurringTransactions.length > 0) {
           setMinorRecurringTransactions(minorRecurringTransactions);
         } else {
@@ -392,7 +409,15 @@ const App: React.FC = () => {
     setIsInvestigating(true);
     try {
       const minorExpenses = await analyzeMinorRecurringTransactions(minorRecurringTransactions);
-      setRecurringExpenses(prev => [...(prev || []), ...minorExpenses].sort((a,b) => b.averageAmount - a.averageAmount));
+      setRecurringExpenses(prev => {
+        const newList = [...(prev || []), ...minorExpenses].sort((a,b) => b.averageAmount - a.averageAmount);
+        
+        // Save updated list to Supabase
+        const uid = user?.id || 'anonymous';
+        upsertRecurringExpenses(uid, newList).catch(e => console.warn('Supabase upsertRecurringExpenses failed:', e));
+        
+        return newList;
+      });
       setMinorRecurringTransactions(null);
     } catch (err) {
       console.error("Could not analyze minor recurring expenses:", err);
