@@ -94,7 +94,9 @@ export async function upsertTransactions(userId: string, transactions: any[], us
       bucket_of_life: tx.bucketOfLife || null,
       raw: tx, // jsonb column
     }));
-    const { data, error } = await sb.from('transactions').upsert(payload, { onConflict: 'id' });
+    
+    // Use select() to return the inserted data, which helps confirm success
+    const { data, error } = await sb.from('transactions').upsert(payload, { onConflict: 'id' }).select();
     if (error) throw error;
     return data;
   } catch (e) {
