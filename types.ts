@@ -10,6 +10,19 @@ export interface Transaction {
   bucketOfLife?: string;
   userName?: string;
   userId?: string;
+  // Social features
+  likes?: number;
+  dislikes?: number;
+  commentsCount?: number;
+  userReaction?: 'like' | 'dislike' | null;
+}
+
+export interface PostComment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: Date;
 }
 
 export interface PeriodSummary {

@@ -1,16 +1,36 @@
-import React, { useMemo } from 'react';
-import { Transaction } from '../types';
-import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Transaction, PostComment } from '../types';
+import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
+import { getPostReactions, togglePostReaction, getPostComments, addPostComment } from '../services/supabaseClient';
 
 interface SocialFeedProps {
     transactions: Transaction[];
-    user?: { firstName?: string | null; email?: string | null } | null;
+    user?: { id: string | null; firstName?: string | null; email?: string | null } | null;
+}
+
+interface PostData {
+    postKey: string;
+    date: string;
+    userId: string;
+    userName: string;
+    transactions: Transaction[];
+    timestamp: number;
+    likes: number;
+    dislikes: number;
+    userReaction: 'like' | 'dislike' | null;
+    comments: PostComment[];
+    commentsExpanded: boolean;
 }
 
 export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
+    const [posts, setPosts] = useState<PostData[]>([]);
+    const [commentInputs, setCommentInputs] = useState<{ [postKey: string]: string }>({});
+    const [loadingStates, setLoadingStates] = useState<{ [postKey: string]: boolean }>({});
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+
     // Group transactions by date AND user
     const groupedPosts = useMemo(() => {
-        const groups: { [key: string]: { date: string, userId: string, userName: string, transactions: Transaction[], timestamp: number } } = {};
+        const groups: { [key: string]: Omit<PostData, 'likes' | 'dislikes' | 'userReaction' | 'comments' | 'commentsExpanded'> } = {};
         
         // Sort transactions by date descending
         const sorted = [...transactions].sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -23,14 +43,13 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                 day: 'numeric' 
             });
             
-            // Use userId if available, otherwise fallback to 'unknown' or the current user's id if it matches
             const tUserId = t.userId || 'anonymous';
-            const tUserName = t.userName || (tUserId === user?.email ? (user?.firstName || 'You') : 'Anonymous User');
+            const tUserName = t.userName || 'Anonymous User';
+            const postKey = `${dateStr}_${tUserId}`;
 
-            const key = `${dateStr}_${tUserId}`;
-
-            if (!groups[key]) {
-                groups[key] = {
+            if (!groups[postKey]) {
+                groups[postKey] = {
+                    postKey,
                     date: dateStr,
                     userId: tUserId,
                     userName: tUserName,
@@ -38,25 +57,119 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                     timestamp: t.date.getTime()
                 };
             }
-            groups[key].transactions.push(t);
+            groups[postKey].transactions.push(t);
         });
 
-        // Convert to array and sort by timestamp descending
         return Object.values(groups).sort((a, b) => b.timestamp - a.timestamp);
-    }, [transactions, user]);
+    }, [transactions]);
 
-    if (transactions.length === 0) {
+    // Load reactions and comments for all posts
+    useEffect(() => {
+        const loadPostData = async () => {
+            const postsWithData = await Promise.all(
+                groupedPosts.map(async (post) => {
+                    const reactions = await getPostReactions(post.postKey, user?.id || undefined);
+                    const comments = await getPostComments(post.postKey);
+                    
+                    return {
+                        ...post,
+                        likes: reactions.likes,
+                        dislikes: reactions.dislikes,
+                        userReaction: reactions.userReaction,
+                        comments,
+                        commentsExpanded: false,
+                    };
+                })
+            );
+            
+            setPosts(postsWithData);
+            setIsInitialLoad(false);
+        };
+
+        if (groupedPosts.length > 0) {
+            loadPostData();
+        } else {
+            setPosts([]);
+            setIsInitialLoad(false);
+        }
+    }, [groupedPosts, user?.id]);
+
+    const handleReaction = async (postKey: string, reactionType: 'like' | 'dislike') => {
+        if (!user?.id) return;
+        
+        setLoadingStates(prev => ({ ...prev, [`${postKey}_${reactionType}`]: true }));
+        
+        try {
+            await togglePostReaction(postKey, user.id, reactionType);
+            
+            // Refresh reactions for this post
+            const reactions = await getPostReactions(postKey, user.id);
+            
+            setPosts(prev => prev.map(post => 
+                post.postKey === postKey 
+                    ? { ...post, likes: reactions.likes, dislikes: reactions.dislikes, userReaction: reactions.userReaction }
+                    : post
+            ));
+        } catch (error) {
+            console.error('Failed to toggle reaction:', error);
+        } finally {
+            setLoadingStates(prev => ({ ...prev, [`${postKey}_${reactionType}`]: false }));
+        }
+    };
+
+    const handleAddComment = async (postKey: string) => {
+        if (!user?.id || !commentInputs[postKey]?.trim()) return;
+        
+        setLoadingStates(prev => ({ ...prev, [`${postKey}_comment`]: true }));
+        
+        try {
+            const userName = user.firstName || user.email || 'Anonymous User';
+            const newComment = await addPostComment(postKey, user.id, userName, commentInputs[postKey].trim());
+            
+            setPosts(prev => prev.map(post => 
+                post.postKey === postKey 
+                    ? { ...post, comments: [...post.comments, newComment], commentsExpanded: true }
+                    : post
+            ));
+            
+            setCommentInputs(prev => ({ ...prev, [postKey]: '' }));
+        } catch (error) {
+            console.error('Failed to add comment:', error);
+        } finally {
+            setLoadingStates(prev => ({ ...prev, [`${postKey}_comment`]: false }));
+        }
+    };
+
+    const toggleCommentsExpanded = (postKey: string) => {
+        setPosts(prev => prev.map(post => 
+            post.postKey === postKey 
+                ? { ...post, commentsExpanded: !post.commentsExpanded }
+                : post
+        ));
+    };
+
+    if (isInitialLoad) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Loader className="w-8 h-8 animate-spin mb-2" />
+                <p>Loading social feed...</p>
+            </div>
+        );
+    }
+
+    if (posts.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                 <p>No transactions to display in the feed.</p>
+                <p className="text-sm mt-2">Upload some transactions to share with the community!</p>
             </div>
         );
     }
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-12">
-            {groupedPosts.map(post => (
-                <div key={`${post.date}-${post.userId}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {posts.map(post => (
+                <div key={post.postKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Post Header */}
                     <div className="p-4 border-b border-gray-100 flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
@@ -91,8 +204,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-2 flex-shrink-0">
-                                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                                        <DollarSign className="w-3 h-3 text-green-600" />
+                                    <div className={`w-6 h-6 rounded-full ${t.type === 'Income' ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center`}>
+                                        <DollarSign className={`w-3 h-3 ${t.type === 'Income' ? 'text-green-600' : 'text-red-600'}`} />
                                     </div>
                                     <span className="font-bold text-gray-900">
                                         ${Math.abs(t.amount).toFixed(2)}
@@ -104,35 +217,104 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
 
                     {/* Post Actions */}
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-gray-500">
-                        <button className="flex items-center space-x-1.5 hover:text-green-600 transition-colors">
-                            <ThumbsUp className="w-5 h-5" />
-                            <span className="text-sm font-medium">0</span>
+                        <button 
+                            onClick={() => handleReaction(post.postKey, 'like')}
+                            disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
+                            className={`flex items-center space-x-1.5 transition-colors ${
+                                post.userReaction === 'like' 
+                                    ? 'text-green-600' 
+                                    : 'hover:text-green-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <ThumbsUp className={`w-5 h-5 ${post.userReaction === 'like' ? 'fill-current' : ''}`} />
+                            <span className="text-sm font-medium">{post.likes}</span>
                         </button>
-                        <button className="flex items-center space-x-1.5 hover:text-red-600 transition-colors">
-                            <ThumbsDown className="w-5 h-5" />
-                            <span className="text-sm font-medium">0</span>
+                        <button 
+                            onClick={() => handleReaction(post.postKey, 'dislike')}
+                            disabled={!user?.id || loadingStates[`${post.postKey}_dislike`]}
+                            className={`flex items-center space-x-1.5 transition-colors ${
+                                post.userReaction === 'dislike' 
+                                    ? 'text-red-600' 
+                                    : 'hover:text-red-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <ThumbsDown className={`w-5 h-5 ${post.userReaction === 'dislike' ? 'fill-current' : ''}`} />
+                            <span className="text-sm font-medium">{post.dislikes}</span>
                         </button>
-                        <button className="flex items-center space-x-1.5 hover:text-blue-600 transition-colors">
+                        <button 
+                            onClick={() => toggleCommentsExpanded(post.postKey)}
+                            className="flex items-center space-x-1.5 hover:text-blue-600 transition-colors"
+                        >
                             <MessageCircle className="w-5 h-5" />
-                            <span className="text-sm font-medium">0</span>
+                            <span className="text-sm font-medium">{post.comments.length}</span>
                         </button>
                     </div>
                     
-                    {/* Comment Input Placeholder */}
-                    <div className="px-4 py-3 border-t border-gray-100 flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                             <img 
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'mateus'}`} 
-                                alt="User Avatar" 
-                                className="w-full h-full object-cover"
-                            />
+                    {/* Comments Section */}
+                    {post.commentsExpanded && (
+                        <div className="border-t border-gray-100">
+                            {post.comments.length > 0 && (
+                                <div className="px-4 py-3 space-y-3 max-h-64 overflow-y-auto">
+                                    {post.comments.map(comment => (
+                                        <div key={comment.id} className="flex items-start space-x-2">
+                                            <div className="w-7 h-7 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                                                <img 
+                                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.userId}`} 
+                                                    alt="User Avatar" 
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="bg-gray-100 rounded-lg px-3 py-2">
+                                                    <p className="text-xs font-semibold text-gray-900">{comment.userName}</p>
+                                                    <p className="text-sm text-gray-700 break-words">{comment.text}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1 ml-1">
+                                                    {comment.createdAt.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {/* Comment Input */}
+                            <div className="px-4 py-3 border-t border-gray-100 flex items-center space-x-3">
+                                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                                    <img 
+                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id || 'anonymous'}`} 
+                                        alt="User Avatar" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder={user?.id ? "Add a comment..." : "Sign in to comment"}
+                                    disabled={!user?.id}
+                                    value={commentInputs[post.postKey] || ''}
+                                    onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.postKey]: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleAddComment(post.postKey);
+                                        }
+                                    }}
+                                    className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                    onClick={() => handleAddComment(post.postKey)}
+                                    disabled={!user?.id || !commentInputs[post.postKey]?.trim() || loadingStates[`${post.postKey}_comment`]}
+                                    className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loadingStates[`${post.postKey}_comment`] ? (
+                                        <Loader className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Send className="w-4 h-4" />
+                                    )}
+                                </button>
+                            </div>
                         </div>
-                        <input 
-                            type="text" 
-                            placeholder="Add a comment..." 
-                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-700 placeholder-gray-400"
-                        />
-                    </div>
+                    )}
                 </div>
             ))}
         </div>

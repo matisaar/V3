@@ -53,7 +53,6 @@ const App: React.FC = () => {
     setIsLoading(false);
     setLoadingMessage('');
     setIsGeneratingRecs(false);
-    setRecsError(null);
     setView('dashboard');
   };
 
@@ -194,6 +193,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('dashboard');
   const [socialTransactions, setSocialTransactions] = useState<Transaction[]>([]);
+  const [isSocialLoading, setIsSocialLoading] = useState<boolean>(false);
+  const [socialError, setSocialError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ value: number; total: number } | null>(null);
 
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(MOCK_RECOMMENDATIONS);
@@ -212,6 +213,29 @@ const App: React.FC = () => {
 
   const [latteFactorData, setLatteFactorData] = useState<LatteFactorOpportunity[] | null>(null);
   const [isAnalyzingLatteFactor, setIsAnalyzingLatteFactor] = useState<boolean>(false);
+
+  // Load all public transactions when switching to social view
+  useEffect(() => {
+    const loadSocialFeed = async () => {
+      if (view === 'social') {
+        setIsSocialLoading(true);
+        setSocialError(null);
+        try {
+          const { fetchAllPublicTransactions } = await import('./services/supabaseClient');
+          const publicTransactions = await fetchAllPublicTransactions();
+          setSocialTransactions(publicTransactions);
+        } catch (error) {
+          console.error('Failed to load social feed:', error);
+          setSocialError('Failed to load social feed. Please try again later.');
+          setSocialTransactions([]);
+        } finally {
+          setIsSocialLoading(false);
+        }
+      }
+    };
+
+    loadSocialFeed();
+  }, [view]);
   
   const processAndSetData = useCallback((transactions: Transaction[]) => {
     const getStartOfMonth = (d: Date): Date => {
@@ -607,10 +631,25 @@ const App: React.FC = () => {
             )}
 
             {view === 'social' && (
-                <SocialFeed
-                    transactions={allTransactions}
-                    user={user}
-                />
+                <>
+                    {socialError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center" role="alert">
+                            <AlertCircle className="w-5 h-5 mr-2" />
+                            <span className="block sm:inline">{socialError}</span>
+                        </div>
+                    )}
+                    {isSocialLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                            <Loader className="w-8 h-8 animate-spin mb-2" />
+                            <p>Loading social feed...</p>
+                        </div>
+                    ) : (
+                        <SocialFeed
+                            transactions={socialTransactions}
+                            user={user}
+                        />
+                    )}
+                </>
             )}
           </main>
 

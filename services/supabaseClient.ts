@@ -163,3 +163,183 @@ export async function fetchRecurringExpensesByUser(userId: string) {
   }
 }
 
+// Social Feed Functions
+
+/**
+ * Fetch all public transactions from all users for the social feed
+ */
+export async function fetchAllPublicTransactions() {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb
+      .from('transactions')
+      .select('id, user_id, user_name, date, description, amount, category, type, bucket_of_life, raw')
+      .order('date', { ascending: false })
+      .limit(500); // Limit to recent 500 transactions for performance
+      
+    if (error) throw error;
+    
+    // Map to Transaction objects
+    return (data || []).map((row: any) => {
+      const raw = row.raw || {};
+      return {
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name || 'Anonymous User',
+        date: new Date(row.date),
+        description: row.description || raw.description || '',
+        amount: typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0,
+        category: row.category || raw.category || '',
+        type: row.type || raw.type || 'Expense',
+        bucketOfLife: row.bucket_of_life || raw.bucketOfLife || '',
+      };
+    });
+  } catch (e) {
+    console.error('Failed to fetch public transactions:', e);
+    throw e;
+  }
+}
+
+/**
+ * Get like/dislike counts and user's reaction for a post
+ */
+export async function getPostReactions(postKey: string, currentUserId?: string) {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb
+      .from('post_likes')
+      .select('user_id, reaction_type')
+      .eq('post_key', postKey);
+      
+    if (error) throw error;
+    
+    const likes = (data || []).filter((r: any) => r.reaction_type === 'like').length;
+    const dislikes = (data || []).filter((r: any) => r.reaction_type === 'dislike').length;
+    
+    let userReaction: 'like' | 'dislike' | null = null;
+    if (currentUserId) {
+      const userLike = (data || []).find((r: any) => r.user_id === currentUserId);
+      if (userLike) {
+        userReaction = userLike.reaction_type as 'like' | 'dislike';
+      }
+    }
+    
+    return { likes, dislikes, userReaction };
+  } catch (e) {
+    console.error('Failed to fetch post reactions:', e);
+    return { likes: 0, dislikes: 0, userReaction: null };
+  }
+}
+
+/**
+ * Toggle a like or dislike on a post
+ * If user already has the same reaction, remove it
+ * If user has the opposite reaction, switch to the new one
+ */
+export async function togglePostReaction(postKey: string, userId: string, reactionType: 'like' | 'dislike') {
+  const sb = getSupabaseClient();
+  try {
+    // Check if user already has a reaction on this post
+    const { data: existing, error: fetchError } = await sb
+      .from('post_likes')
+      .select('id, reaction_type')
+      .eq('post_key', postKey)
+      .eq('user_id', userId)
+      .maybeSingle();
+      
+    if (fetchError) throw fetchError;
+    
+    if (existing) {
+      if (existing.reaction_type === reactionType) {
+        // User is toggling off their reaction - delete it
+        const { error: deleteError } = await sb
+          .from('post_likes')
+          .delete()
+          .eq('id', existing.id);
+          
+        if (deleteError) throw deleteError;
+        return { action: 'removed', reactionType };
+      } else {
+        // User is switching their reaction - update it
+        const { error: updateError } = await sb
+          .from('post_likes')
+          .update({ reaction_type: reactionType })
+          .eq('id', existing.id);
+          
+        if (updateError) throw updateError;
+        return { action: 'updated', reactionType };
+      }
+    } else {
+      // User has no reaction yet - insert new one
+      const { error: insertError } = await sb
+        .from('post_likes')
+        .insert({ user_id: userId, post_key: postKey, reaction_type: reactionType });
+        
+      if (insertError) throw insertError;
+      return { action: 'added', reactionType };
+    }
+  } catch (e) {
+    console.error('Failed to toggle post reaction:', e);
+    throw e;
+  }
+}
+
+/**
+ * Get comments for a post
+ */
+export async function getPostComments(postKey: string) {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb
+      .from('post_comments')
+      .select('id, user_id, user_name, comment_text, created_at')
+      .eq('post_key', postKey)
+      .order('created_at', { ascending: true });
+      
+    if (error) throw error;
+    
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      userName: row.user_name || 'Anonymous User',
+      text: row.comment_text,
+      createdAt: new Date(row.created_at),
+    }));
+  } catch (e) {
+    console.error('Failed to fetch post comments:', e);
+    return [];
+  }
+}
+
+/**
+ * Add a comment to a post
+ */
+export async function addPostComment(postKey: string, userId: string, userName: string, commentText: string) {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb
+      .from('post_comments')
+      .insert({
+        post_key: postKey,
+        user_id: userId,
+        user_name: userName,
+        comment_text: commentText,
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      userId: data.user_id,
+      userName: data.user_name,
+      text: data.comment_text,
+      createdAt: new Date(data.created_at),
+    };
+  } catch (e) {
+    console.error('Failed to add comment:', e);
+    throw e;
+  }
+}
+
