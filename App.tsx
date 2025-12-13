@@ -10,12 +10,11 @@ import { FileUp, Loader, AlertCircle } from 'lucide-react';
 import { MOCK_DATA, MOCK_TRANSACTIONS, MOCK_RECOMMENDATIONS, MOCK_RECURRING_EXPENSES } from './constants';
 import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetailModal';
-import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransactions, getSupabaseClient } from './services/supabaseClient';
+import { upsertTransactions, upsertRecurringExpenses, getSupabaseClient } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 import { InsightsView } from './components/InsightsView';
-// Lazy load SocialFeed to avoid potential circular dependency issues during initialization
-const SocialFeed = React.lazy(() => import('./components/SocialFeed').then(module => ({ default: module.SocialFeed })));
+import { SocialFeed } from './components/SocialFeed';
 
 type View = 'dashboard' | 'expenses' | 'insights' | 'social';
 
@@ -33,23 +32,8 @@ const parseFileContent = async (text: string, fileName: string): Promise<Omit<Tr
 const App: React.FC = () => {
   // Debug log to verify deployment
   useEffect(() => {
-    console.log('App version: Social Feed Added');
+    console.log('App version: Social Feed Reverted to Local');
   }, []);
-
-  useEffect(() => {
-    if (view === 'social') {
-      setLoadingMessage('Loading social feed...');
-      setIsLoading(true);
-      fetchRecentGlobalTransactions(100).then(txs => {
-        console.log('Fetched social transactions:', txs.length, txs);
-        setSocialTransactions(txs);
-        setIsLoading(false);
-      }).catch(err => {
-        console.error('Error fetching social transactions:', err);
-        setIsLoading(false);
-      });
-    }
-  }, [view]);
 
   const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -623,12 +607,10 @@ const App: React.FC = () => {
             )}
 
             {view === 'social' && (
-                <React.Suspense fallback={<div className="flex justify-center p-8"><Loader className="animate-spin w-8 h-8 text-gray-400" /></div>}>
-                    <SocialFeed
-                        transactions={socialTransactions}
-                        user={user}
-                    />
-                </React.Suspense>
+                <SocialFeed
+                    transactions={allTransactions}
+                    user={user}
+                />
             )}
           </main>
 

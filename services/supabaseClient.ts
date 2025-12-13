@@ -1,5 +1,4 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Transaction } from '../types';
 
 // Use Vite env vars in the browser: import.meta.env.VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 // Fallback to process.env on server
@@ -161,36 +160,6 @@ export async function fetchRecurringExpensesByUser(userId: string) {
   } catch (e) {
     console.error('Supabase fetchRecurringExpensesByUser failed:', e);
     throw e;
-  }
-}
-
-export async function fetchRecentGlobalTransactions(limit: number = 100): Promise<Transaction[]> {
-  const sb = getSupabaseClient();
-  try {
-    // Select explicit columns to ensure we get data even if 'raw' is missing or outdated
-    const { data, error } = await sb
-      .from('transactions')
-      .select('id, date, description, amount, category, type, bucket_of_life, user_id, user_name')
-      .order('date', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-    if (!data) return [];
-
-    return data.map((row: any) => ({
-      id: row.id,
-      date: row.date ? new Date(row.date) : new Date(),
-      description: row.description,
-      amount: row.amount,
-      category: row.category,
-      type: row.type as 'Income' | 'Expense',
-      bucketOfLife: row.bucket_of_life,
-      userId: row.user_id,
-      userName: row.user_name
-    }));
-  } catch (e) {
-    console.error('Failed to fetch global transactions:', e);
-    return [];
   }
 }
 
