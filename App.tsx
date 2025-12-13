@@ -31,6 +31,11 @@ const parseFileContent = async (text: string, fileName: string): Promise<Omit<Tr
 };
 
 const App: React.FC = () => {
+  // Debug log to verify deployment
+  useEffect(() => {
+    console.log('App version: Social Feed Added');
+  }, []);
+
   const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
