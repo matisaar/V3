@@ -14,7 +14,8 @@ import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransacti
 import { SupabaseAuth } from './components/SupabaseAuth';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 import { InsightsView } from './components/InsightsView';
-import { SocialFeed } from './components/SocialFeed';
+// Lazy load SocialFeed to avoid potential circular dependency issues during initialization
+const SocialFeed = React.lazy(() => import('./components/SocialFeed').then(module => ({ default: module.SocialFeed })));
 
 type View = 'dashboard' | 'expenses' | 'insights' | 'social';
 
@@ -622,10 +623,12 @@ const App: React.FC = () => {
             )}
 
             {view === 'social' && (
-                <SocialFeed
-                    transactions={socialTransactions}
-                    user={user}
-                />
+                <React.Suspense fallback={<div className="flex justify-center p-8"><Loader className="animate-spin w-8 h-8 text-gray-400" /></div>}>
+                    <SocialFeed
+                        transactions={socialTransactions}
+                        user={user}
+                    />
+                </React.Suspense>
             )}
           </main>
 
