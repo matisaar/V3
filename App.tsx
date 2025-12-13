@@ -138,16 +138,8 @@ const App: React.FC = () => {
         
         if (session?.user) {
             let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-            if (!firstNameFromMeta) {
-                try {
-                    const { data: profile } = await supabase.from('profiles').select('full_name,first_name,name').eq('id', session.user.id).maybeSingle();
-                    if (profile && mounted) {
-                        firstNameFromMeta = profile.full_name || profile.first_name || profile.name || null;
-                    }
-                } catch (e) {
-                    // ignore - profiles table might not exist
-                }
-            }
+            // Skip profiles table lookup - it may not exist and causes 404 errors
+            // Just use email as display name if first_name not in metadata
             if (mounted) {
                 handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
             }
