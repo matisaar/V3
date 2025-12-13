@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Transaction, PostComment } from '../types';
 import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
 import { getPostReactions, togglePostReaction, getPostComments, addPostComment } from '../services/supabaseClient';
@@ -20,17 +20,22 @@ interface PostData {
     userReaction: 'like' | 'dislike' | null;
     comments: PostComment[];
     commentsExpanded: boolean;
+    reactionsLoaded: boolean;
 }
+
+// Helper to add delay between requests
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
     const [posts, setPosts] = useState<PostData[]>([]);
     const [commentInputs, setCommentInputs] = useState<{ [postKey: string]: string }>({});
     const [loadingStates, setLoadingStates] = useState<{ [postKey: string]: boolean }>({});
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const loadingReactionsRef = useRef(false);
 
     // Group transactions by date AND user
     const groupedPosts = useMemo(() => {
-        const groups: { [key: string]: Omit<PostData, 'likes' | 'dislikes' | 'userReaction' | 'comments' | 'commentsExpanded'> } = {};
+        const groups: { [key: string]: Omit<PostData, 'likes' | 'dislikes' | 'userReaction' | 'comments' | 'commentsExpanded' | 'reactionsLoaded'> } = {};
         
         // Sort transactions by date descending
         const sorted = [...transactions].sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -63,36 +68,68 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         return Object.values(groups).sort((a, b) => b.timestamp - a.timestamp);
     }, [transactions]);
 
-    // Load reactions and comments for all posts
+    // Initialize posts with default values (no API calls yet)
     useEffect(() => {
-        const loadPostData = async () => {
-            const postsWithData = await Promise.all(
-                groupedPosts.map(async (post) => {
-                    const reactions = await getPostReactions(post.postKey, user?.id || undefined);
-                    const comments = await getPostComments(post.postKey);
-                    
-                    return {
-                        ...post,
-                        likes: reactions.likes,
-                        dislikes: reactions.dislikes,
-                        userReaction: reactions.userReaction,
-                        comments,
-                        commentsExpanded: false,
-                    };
-                })
-            );
-            
-            setPosts(postsWithData);
-            setIsInitialLoad(false);
-        };
-
         if (groupedPosts.length > 0) {
-            loadPostData();
+            const initialPosts: PostData[] = groupedPosts.map(post => ({
+                ...post,
+                likes: 0,
+                dislikes: 0,
+                userReaction: null,
+                comments: [],
+                commentsExpanded: false,
+                reactionsLoaded: false,
+            }));
+            setPosts(initialPosts);
+            setIsInitialLoad(false);
         } else {
             setPosts([]);
             setIsInitialLoad(false);
         }
-    }, [groupedPosts, user?.id]);
+    }, [groupedPosts]);
+
+    // Load reactions sequentially with delays to avoid rate limiting
+    useEffect(() => {
+        const loadReactionsSequentially = async () => {
+            if (loadingReactionsRef.current || posts.length === 0) return;
+            
+            // Only load for posts that haven't been loaded yet
+            const unloadedPosts = posts.filter(p => !p.reactionsLoaded);
+            if (unloadedPosts.length === 0) return;
+            
+            loadingReactionsRef.current = true;
+            
+            // Load only first 5 posts initially (visible ones)
+            const postsToLoad = unloadedPosts.slice(0, 5);
+            
+            for (const post of postsToLoad) {
+                try {
+                    const reactions = await getPostReactions(post.postKey, user?.id || undefined);
+                    
+                    setPosts(prev => prev.map(p => 
+                        p.postKey === post.postKey 
+                            ? { ...p, likes: reactions.likes, dislikes: reactions.dislikes, userReaction: reactions.userReaction, reactionsLoaded: true }
+                            : p
+                    ));
+                    
+                    // Add delay between requests to avoid rate limiting
+                    await delay(200);
+                } catch (error) {
+                    console.warn('Failed to load reactions for post:', post.postKey, error);
+                    // Mark as loaded anyway to prevent infinite retries
+                    setPosts(prev => prev.map(p => 
+                        p.postKey === post.postKey 
+                            ? { ...p, reactionsLoaded: true }
+                            : p
+                    ));
+                }
+            }
+            
+            loadingReactionsRef.current = false;
+        };
+
+        loadReactionsSequentially();
+    }, [posts.length, user?.id]);
 
     const handleReaction = async (postKey: string, reactionType: 'like' | 'dislike') => {
         if (!user?.id) return;
@@ -140,12 +177,38 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         }
     };
 
-    const toggleCommentsExpanded = (postKey: string) => {
-        setPosts(prev => prev.map(post => 
-            post.postKey === postKey 
-                ? { ...post, commentsExpanded: !post.commentsExpanded }
-                : post
-        ));
+    const toggleCommentsExpanded = async (postKey: string) => {
+        const post = posts.find(p => p.postKey === postKey);
+        if (!post) return;
+        
+        // If expanding and comments haven't been loaded yet, load them
+        if (!post.commentsExpanded && post.comments.length === 0) {
+            setLoadingStates(prev => ({ ...prev, [`${postKey}_loadComments`]: true }));
+            try {
+                const comments = await getPostComments(postKey);
+                setPosts(prev => prev.map(p => 
+                    p.postKey === postKey 
+                        ? { ...p, comments, commentsExpanded: true }
+                        : p
+                ));
+            } catch (error) {
+                console.warn('Failed to load comments:', error);
+                // Still expand even if loading failed
+                setPosts(prev => prev.map(p => 
+                    p.postKey === postKey 
+                        ? { ...p, commentsExpanded: true }
+                        : p
+                ));
+            } finally {
+                setLoadingStates(prev => ({ ...prev, [`${postKey}_loadComments`]: false }));
+            }
+        } else {
+            setPosts(prev => prev.map(p => 
+                p.postKey === postKey 
+                    ? { ...p, commentsExpanded: !p.commentsExpanded }
+                    : p
+            ));
+        }
     };
 
     if (isInitialLoad) {
