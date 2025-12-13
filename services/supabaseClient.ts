@@ -35,9 +35,42 @@ export function getSupabaseClient(): SupabaseClient {
     return createStubClient();
   }
   if (!supabase) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        // Reduce auto-refresh frequency to avoid 429 errors
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+      global: {
+        headers: {
+          'x-client-info': 'finance-tracker',
+        },
+      },
+    });
   }
   return supabase;
+}
+
+// Helper function to retry API calls with exponential backoff on 429 errors
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      // Check if it's a rate limit error
+      if (error?.status === 429 || error?.message?.includes('429') || error?.code === '429') {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error; // Non-rate-limit error, throw immediately
+      }
+    }
+  }
+  throw lastError;
 }
 
 export async function upsertTransactions(userId: string, transactions: any[], userName?: string | null) {

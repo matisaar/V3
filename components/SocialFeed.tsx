@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Transaction, PostComment } from '../types';
 import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
 import { getPostReactions, togglePostReaction, getPostComments, addPostComment } from '../services/supabaseClient';
@@ -31,7 +31,6 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
     const [commentInputs, setCommentInputs] = useState<{ [postKey: string]: string }>({});
     const [loadingStates, setLoadingStates] = useState<{ [postKey: string]: boolean }>({});
     const [isInitialLoad, setIsInitialLoad] = useState(true);
-    const loadingReactionsRef = useRef(false);
 
     // Group transactions by date AND user
     const groupedPosts = useMemo(() => {
@@ -88,48 +87,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         }
     }, [groupedPosts]);
 
-    // Load reactions sequentially with delays to avoid rate limiting
-    useEffect(() => {
-        const loadReactionsSequentially = async () => {
-            if (loadingReactionsRef.current || posts.length === 0) return;
-            
-            // Only load for posts that haven't been loaded yet
-            const unloadedPosts = posts.filter(p => !p.reactionsLoaded);
-            if (unloadedPosts.length === 0) return;
-            
-            loadingReactionsRef.current = true;
-            
-            // Load only first 5 posts initially (visible ones)
-            const postsToLoad = unloadedPosts.slice(0, 5);
-            
-            for (const post of postsToLoad) {
-                try {
-                    const reactions = await getPostReactions(post.postKey, user?.id || undefined);
-                    
-                    setPosts(prev => prev.map(p => 
-                        p.postKey === post.postKey 
-                            ? { ...p, likes: reactions.likes, dislikes: reactions.dislikes, userReaction: reactions.userReaction, reactionsLoaded: true }
-                            : p
-                    ));
-                    
-                    // Add delay between requests to avoid rate limiting
-                    await delay(200);
-                } catch (error) {
-                    console.warn('Failed to load reactions for post:', post.postKey, error);
-                    // Mark as loaded anyway to prevent infinite retries
-                    setPosts(prev => prev.map(p => 
-                        p.postKey === post.postKey 
-                            ? { ...p, reactionsLoaded: true }
-                            : p
-                    ));
-                }
-            }
-            
-            loadingReactionsRef.current = false;
-        };
-
-        loadReactionsSequentially();
-    }, [posts.length, user?.id]);
+    // NOTE: Reactions are NOT auto-loaded to avoid rate limiting.
+    // They load on-demand when user clicks like/dislike button.
 
     const handleReaction = async (postKey: string, reactionType: 'like' | 'dislike') => {
         if (!user?.id) return;
@@ -137,6 +96,19 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         setLoadingStates(prev => ({ ...prev, [`${postKey}_${reactionType}`]: true }));
         
         try {
+            // If reactions haven't been loaded yet, load them first
+            const post = posts.find(p => p.postKey === postKey);
+            if (post && !post.reactionsLoaded) {
+                const reactions = await getPostReactions(postKey, user.id);
+                setPosts(prev => prev.map(p => 
+                    p.postKey === postKey 
+                        ? { ...p, likes: reactions.likes, dislikes: reactions.dislikes, userReaction: reactions.userReaction, reactionsLoaded: true }
+                        : p
+                ));
+                // Small delay before the toggle
+                await delay(100);
+            }
+            
             await togglePostReaction(postKey, user.id, reactionType);
             
             // Refresh reactions for this post
