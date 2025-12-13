@@ -14,7 +14,7 @@ import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransacti
 import { SupabaseAuth } from './components/SupabaseAuth';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 import { InsightsView } from './components/InsightsView';
-import SocialFeed from './components/SocialFeed';
+import { SocialFeed } from './components/SocialFeed';
 
 type View = 'dashboard' | 'expenses' | 'insights' | 'social';
 
@@ -41,7 +41,6 @@ const App: React.FC = () => {
       setIsLoading(true);
       fetchRecentGlobalTransactions(100).then(txs => {
         console.log('Fetched social transactions:', txs.length, txs);
-        // @ts-ignore
         setSocialTransactions(txs);
         setIsLoading(false);
       }).catch(err => {

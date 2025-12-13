@@ -7,7 +7,7 @@ interface SocialFeedProps {
     user?: { firstName?: string | null; email?: string | null } | null;
 }
 
-const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
+export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
     // Group transactions by date AND user
     const groupedPosts = useMemo(() => {
         const groups: { [key: string]: { date: string, userId: string, userName: string, transactions: Transaction[], timestamp: number } } = {};
@@ -138,5 +138,3 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
         </div>
     );
 };
-
-export default SocialFeed;

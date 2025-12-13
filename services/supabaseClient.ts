@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Transaction } from '../types';
 
 // Use Vite env vars in the browser: import.meta.env.VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 // Fallback to process.env on server
@@ -163,7 +164,7 @@ export async function fetchRecurringExpensesByUser(userId: string) {
   }
 }
 
-export async function fetchRecentGlobalTransactions(limit: number = 100) {
+export async function fetchRecentGlobalTransactions(limit: number = 100): Promise<Transaction[]> {
   const sb = getSupabaseClient();
   try {
     // Select explicit columns to ensure we get data even if 'raw' is missing or outdated
@@ -182,7 +183,7 @@ export async function fetchRecentGlobalTransactions(limit: number = 100) {
       description: row.description,
       amount: row.amount,
       category: row.category,
-      type: row.type,
+      type: row.type as 'Income' | 'Expense',
       bucketOfLife: row.bucket_of_life,
       userId: row.user_id,
       userName: row.user_name
