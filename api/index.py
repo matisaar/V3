@@ -11,8 +11,8 @@ app = FastAPI()
 
 # Initialize Supabase Client
 # Use os.environ.get with a default or handle missing keys gracefully for build steps
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
+url: str = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
 
 # Only initialize if keys are present (prevents build errors if env vars are missing during build)
 if url and key:
@@ -21,7 +21,7 @@ else:
     print("Warning: Supabase credentials not found in environment variables.")
 
 # Initialize Gemini
-gemini_key = os.environ.get("GEMINI_API_KEY")
+gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("VITE_GEMINI_API_KEY")
 if gemini_key:
     genai.configure(api_key=gemini_key)
 
