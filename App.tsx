@@ -10,7 +10,7 @@ import { FileUp, Loader, AlertCircle } from 'lucide-react';
 import { MOCK_DATA, MOCK_TRANSACTIONS, MOCK_RECOMMENDATIONS, MOCK_RECURRING_EXPENSES } from './constants';
 import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetailModal';
-import { upsertTransactions, upsertRecurringExpenses } from './services/supabaseClient';
+import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransactions } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
@@ -35,6 +35,15 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log('App version: Social Feed Added');
   }, []);
+
+  useEffect(() => {
+    if (view === 'social') {
+      fetchRecentGlobalTransactions().then(txs => {
+        // @ts-ignore
+        setSocialTransactions(txs);
+      });
+    }
+  }, [view]);
 
   const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -194,6 +203,7 @@ const App: React.FC = () => {
   const [loadingMessage, setLoadingMessage] = useState<string>('Analyzing Transactions...');
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('dashboard');
+  const [socialTransactions, setSocialTransactions] = useState<Transaction[]>([]);
   const [progress, setProgress] = useState<{ value: number; total: number } | null>(null);
 
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(MOCK_RECOMMENDATIONS);
@@ -608,7 +618,7 @@ const App: React.FC = () => {
 
             {view === 'social' && (
                 <SocialFeed
-                    transactions={allTransactions}
+                    transactions={socialTransactions}
                     user={user}
                 />
             )}

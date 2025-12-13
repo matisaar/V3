@@ -8,30 +8,42 @@ interface SocialFeedProps {
 }
 
 export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) => {
-    // Group transactions by date
-    const groupedTransactions = useMemo(() => {
-        const groups: { [date: string]: Transaction[] } = {};
+    // Group transactions by date AND user
+    const groupedPosts = useMemo(() => {
+        const groups: { [key: string]: { date: string, userId: string, userName: string, transactions: Transaction[], timestamp: number } } = {};
         
         // Sort transactions by date descending
         const sorted = [...transactions].sort((a, b) => b.date.getTime() - a.date.getTime());
 
         sorted.forEach(t => {
-            const dateKey = t.date.toLocaleDateString('en-US', { 
+            const dateStr = t.date.toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
             });
-            if (!groups[dateKey]) {
-                groups[dateKey] = [];
+            
+            // Use userId if available, otherwise fallback to 'unknown' or the current user's id if it matches
+            const tUserId = t.userId || 'anonymous';
+            const tUserName = t.userName || (tUserId === user?.email ? (user?.firstName || 'You') : 'Anonymous User');
+
+            const key = `${dateStr}_${tUserId}`;
+
+            if (!groups[key]) {
+                groups[key] = {
+                    date: dateStr,
+                    userId: tUserId,
+                    userName: tUserName,
+                    transactions: [],
+                    timestamp: t.date.getTime()
+                };
             }
-            groups[dateKey].push(t);
+            groups[key].transactions.push(t);
         });
 
-        return groups;
-    }, [transactions]);
-
-    const dates = Object.keys(groupedTransactions);
+        // Convert to array and sort by timestamp descending
+        return Object.values(groups).sort((a, b) => b.timestamp - a.timestamp);
+    }, [transactions, user]);
 
     if (transactions.length === 0) {
         return (
@@ -43,29 +55,28 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 pb-12">
-            {dates.map(date => (
-                <div key={date} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {groupedPosts.map(post => (
+                <div key={`${post.date}-${post.userId}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Post Header */}
                     <div className="p-4 border-b border-gray-100 flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                            {/* Placeholder Avatar */}
                             <img 
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'mateus'}`} 
+                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`} 
                                 alt="User Avatar" 
                                 className="w-full h-full object-cover"
                             />
                         </div>
                         <div>
                             <h3 className="font-semibold text-gray-900">
-                                {user?.firstName || user?.email?.split('@')[0] || 'User'}
+                                {post.userName}
                             </h3>
-                            <p className="text-xs text-gray-500">{date}</p>
+                            <p className="text-xs text-gray-500">{post.date}</p>
                         </div>
                     </div>
 
                     {/* Post Content (Transactions List) */}
                     <div className="p-4 space-y-3">
-                        {groupedTransactions[date].map(t => (
+                        {post.transactions.map(t => (
                             <div key={t.id} className="flex items-center justify-between group">
                                 <div className="flex items-center space-x-3 overflow-hidden">
                                     <div className="flex flex-col min-w-0">

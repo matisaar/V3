@@ -163,3 +163,31 @@ export async function fetchRecurringExpensesByUser(userId: string) {
   }
 }
 
+export async function fetchRecentGlobalTransactions(limit: number = 50) {
+  const sb = getSupabaseClient();
+  try {
+    // Select raw data plus user_name and user_id from the table
+    const { data, error } = await sb
+      .from('transactions')
+      .select('raw, user_id, user_name, date')
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map((row: any) => {
+      const rawTx = row.raw || {};
+      return {
+        ...rawTx,
+        date: row.date ? new Date(row.date) : (rawTx.date ? new Date(rawTx.date) : new Date()),
+        userId: row.user_id,
+        userName: row.user_name
+      };
+    });
+  } catch (e) {
+    console.error('Failed to fetch global transactions:', e);
+    return [];
+  }
+}
+

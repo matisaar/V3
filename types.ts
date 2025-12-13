@@ -8,6 +8,8 @@ export interface Transaction {
   category: string;
   type: 'Income' | 'Expense';
   bucketOfLife?: string;
+  userName?: string;
+  userId?: string;
 }
 
 export interface PeriodSummary {
