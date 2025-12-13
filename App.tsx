@@ -38,9 +38,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (view === 'social') {
-      fetchRecentGlobalTransactions().then(txs => {
+      setLoadingMessage('Loading social feed...');
+      setIsLoading(true);
+      fetchRecentGlobalTransactions(100).then(txs => {
+        console.log('Fetched social transactions:', txs.length, txs);
         // @ts-ignore
         setSocialTransactions(txs);
+        setIsLoading(false);
+      }).catch(err => {
+        console.error('Error fetching social transactions:', err);
+        setIsLoading(false);
       });
     }
   }, [view]);

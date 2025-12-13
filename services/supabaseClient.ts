@@ -163,28 +163,30 @@ export async function fetchRecurringExpensesByUser(userId: string) {
   }
 }
 
-export async function fetchRecentGlobalTransactions(limit: number = 50) {
+export async function fetchRecentGlobalTransactions(limit: number = 100) {
   const sb = getSupabaseClient();
   try {
-    // Select raw data plus user_name and user_id from the table
+    // Select explicit columns to ensure we get data even if 'raw' is missing or outdated
     const { data, error } = await sb
       .from('transactions')
-      .select('raw, user_id, user_name, date')
+      .select('id, date, description, amount, category, type, bucket_of_life, user_id, user_name')
       .order('date', { ascending: false })
       .limit(limit);
 
     if (error) throw error;
     if (!data) return [];
 
-    return data.map((row: any) => {
-      const rawTx = row.raw || {};
-      return {
-        ...rawTx,
-        date: row.date ? new Date(row.date) : (rawTx.date ? new Date(rawTx.date) : new Date()),
-        userId: row.user_id,
-        userName: row.user_name
-      };
-    });
+    return data.map((row: any) => ({
+      id: row.id,
+      date: row.date ? new Date(row.date) : new Date(),
+      description: row.description,
+      amount: row.amount,
+      category: row.category,
+      type: row.type,
+      bucketOfLife: row.bucket_of_life,
+      userId: row.user_id,
+      userName: row.user_name
+    }));
   } catch (e) {
     console.error('Failed to fetch global transactions:', e);
     return [];
