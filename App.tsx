@@ -15,8 +15,9 @@ import { SupabaseAuth } from './components/SupabaseAuth';
 import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 import { InsightsView } from './components/InsightsView';
+import { SocialFeed } from './components/SocialFeed';
 
-type View = 'dashboard' | 'expenses' | 'insights';
+type View = 'dashboard' | 'expenses' | 'insights' | 'social';
 
 const parseFileContent = async (text: string, fileName: string): Promise<Omit<Transaction, 'category'>[]> => {
     try {
@@ -547,6 +548,14 @@ const App: React.FC = () => {
                   >
                       Insights
                   </button>
+                  <button
+                      onClick={() => setView('social')}
+                      className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 flex-shrink-0 ${
+                          view === 'social' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+                      }`}
+                  >
+                      Social
+                  </button>
               </div>
           </div>
 
@@ -589,6 +598,13 @@ const App: React.FC = () => {
                     processedData={processedData}
                     isLoading={isAnalyzingLatteFactor || isGeneratingRecs}
                     onAnalyze={handleAnalyzeInsights}
+                />
+            )}
+
+            {view === 'social' && (
+                <SocialFeed
+                    transactions={allTransactions}
+                    user={user}
                 />
             )}
           </main>
