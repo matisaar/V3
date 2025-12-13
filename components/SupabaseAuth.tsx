@@ -25,12 +25,23 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
         data: { first_name: firstName }
       }
     });
-    if (error) setError(error.message);
-    // Force refresh of session/user after sign-up to get latest metadata
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    // Create/update the profile row with the first name
     if (data?.user) {
-      // Try to persist a lightweight profile row so other code can read a display name quickly
       try {
-        await getClient().from('profiles').upsert({ id: data.user.id, email: data.user.email, full_name: firstName });
+        const { error: profileError } = await getClient().from('profiles').upsert({ 
+          id: data.user.id, 
+          email: data.user.email, 
+          first_name: firstName,
+          full_name: firstName 
+        }, { onConflict: 'id' });
+        if (profileError) {
+          console.warn('Could not upsert profile after signup:', profileError);
+        }
       } catch (e) {
         console.warn('Could not upsert profile after signup:', e);
       }

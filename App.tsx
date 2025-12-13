@@ -138,8 +138,25 @@ const App: React.FC = () => {
         
         if (session?.user) {
             let firstNameFromMeta = (session.user.user_metadata && (session.user.user_metadata.first_name || session.user.user_metadata.firstName)) || null;
-            // Skip profiles table lookup - it may not exist and causes 404 errors
-            // Just use email as display name if first_name not in metadata
+            
+            // If no first name in metadata, try to get it from profiles table
+            if (!firstNameFromMeta) {
+                try {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('first_name, full_name')
+                        .eq('id', session.user.id)
+                        .maybeSingle();
+                    
+                    if (!profileError && profile) {
+                        firstNameFromMeta = profile.first_name || profile.full_name || null;
+                    }
+                } catch (e) {
+                    // Profiles table might not exist yet - that's okay
+                    console.debug('Could not fetch profile:', e);
+                }
+            }
+            
             if (mounted) {
                 handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
             }
