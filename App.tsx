@@ -10,12 +10,11 @@ import { FileUp, Loader, AlertCircle } from 'lucide-react';
 import { MOCK_DATA, MOCK_TRANSACTIONS, MOCK_RECOMMENDATIONS, MOCK_RECURRING_EXPENSES } from './constants';
 import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { RecurringExpenseDetailModal } from './components/RecurringExpenseDetailModal';
-import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransactions } from './services/supabaseClient';
+import { upsertTransactions, upsertRecurringExpenses, fetchRecentGlobalTransactions, getSupabaseClient } from './services/supabaseClient';
 import { SupabaseAuth } from './components/SupabaseAuth';
-import { getSupabaseClient } from './services/supabaseClient';
 import SpeedInsightsWrapper from './components/SpeedInsightsWrapper';
 import { InsightsView } from './components/InsightsView';
-import { SocialFeed } from './components/SocialFeed';
+import SocialFeed from './components/SocialFeed';
 
 type View = 'dashboard' | 'expenses' | 'insights' | 'social';
 
