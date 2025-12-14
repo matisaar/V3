@@ -202,47 +202,45 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6 pb-12">
+        <div className="max-w-2xl mx-auto space-y-6 pb-12 px-2 sm:px-0">
             {posts.map(post => (
                 <div key={post.postKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Post Header */}
-                    <div className="p-4 border-b border-gray-100 flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                    <div className="p-3 sm:p-4 border-b border-gray-100 flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                             <img 
                                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`} 
                                 alt="User Avatar" 
                                 className="w-full h-full object-cover"
                             />
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-gray-900 truncate">
                                 {post.userName}
                             </h3>
-                            <p className="text-xs text-gray-500">{post.date}</p>
+                            <p className="text-xs text-gray-500 truncate">{post.date}</p>
                         </div>
                     </div>
 
                     {/* Post Content (Transactions List) */}
-                    <div className="p-4 space-y-3">
+                    <div className="p-3 sm:p-4 space-y-3">
                         {post.transactions.map(t => (
-                            <div key={t.id} className="flex items-center justify-between group">
-                                <div className="flex items-center space-x-3 overflow-hidden">
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="font-medium text-gray-700 truncate uppercase text-sm tracking-wide">
-                                            {t.description}
-                                        </span>
-                                        {t.bucketOfLife && (
-                                            <span className="text-xs text-gray-400 truncate">
-                                                {t.bucketOfLife}
-                                            </span>
-                                        )}
-                                    </div>
+                            <div key={t.id} className="flex items-start sm:items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-700 text-sm uppercase tracking-wide break-words">
+                                        {t.description}
+                                    </p>
+                                    {t.bucketOfLife && (
+                                        <p className="text-xs text-gray-400 truncate">
+                                            {t.bucketOfLife}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex items-center space-x-2 flex-shrink-0">
                                     <div className={`w-6 h-6 rounded-full ${t.type === 'Income' ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center`}>
                                         <DollarSign className={`w-3 h-3 ${t.type === 'Income' ? 'text-green-600' : 'text-red-600'}`} />
                                     </div>
-                                    <span className="font-bold text-gray-900">
+                                    <span className="font-bold text-gray-900 text-sm sm:text-base">
                                         ${Math.abs(t.amount).toFixed(2)}
                                     </span>
                                 </div>

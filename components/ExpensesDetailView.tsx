@@ -451,45 +451,75 @@ export const ExpensesDetailView: React.FC<{
                                 <span className="font-bold text-gray-800 text-base">{formatCurrency(monthlyTotal)}</span>
                             </div>
                             {expandedPeriods.has(periodKey) && (
-                                <div className="pl-7">
+                                <div className="pl-2 sm:pl-7">
                                     <div className="border-l border-gray-200">
-                                    <div className="table w-full">
-                                        <div className="table-header-group text-sm font-medium text-gray-500">
-                                            <div className="table-row">
-                                                <div className="table-cell p-2 border-b border-gray-200"><CircleDot className="inline w-4 h-4 mr-2" />Source</div>
-                                                <div className="table-cell p-2 border-b border-gray-200 w-32"><Wallet className="inline w-4 h-4 mr-2" />Amount</div>
-                                                <div className="table-cell p-2 border-b border-gray-200 w-48"><Tag className="inline w-4 h-4 mr-2" />Category</div>
-                                                <div className="table-cell p-2 border-b border-gray-200 w-48"><Calendar className="inline w-4 h-4 mr-2" />Date</div>
+                                    {/* Desktop table view */}
+                                    <div className="hidden sm:block">
+                                        <div className="table w-full">
+                                            <div className="table-header-group text-sm font-medium text-gray-500">
+                                                <div className="table-row">
+                                                    <div className="table-cell p-2 border-b border-gray-200"><CircleDot className="inline w-4 h-4 mr-2" />Source</div>
+                                                    <div className="table-cell p-2 border-b border-gray-200 w-32"><Wallet className="inline w-4 h-4 mr-2" />Amount</div>
+                                                    <div className="table-cell p-2 border-b border-gray-200 w-48"><Tag className="inline w-4 h-4 mr-2" />Category</div>
+                                                    <div className="table-cell p-2 border-b border-gray-200 w-48"><Calendar className="inline w-4 h-4 mr-2" />Date</div>
+                                                </div>
+                                            </div>
+                                            <div className="table-row-group">
+                                            {periodTransactions.sort((a, b) => b.date.getTime() - a.date.getTime()).map(t => (
+                                                <div key={t.id} className="table-row text-sm hover:bg-gray-50">
+                                                    <div className="table-cell p-2 border-b border-gray-100 align-middle">
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-800 truncate font-medium" title={t.description}>{t.description}</span>
+                                                            <button
+                                                                onClick={() => onExplainTransaction(t.id)}
+                                                                className="ml-2 text-gray-400 hover:text-blue-600 transition-colors duration-200 flex-shrink-0"
+                                                                title="Get AI explanation for this transaction"
+                                                                aria-label={`Get AI explanation for ${t.description}`}
+                                                            >
+                                                                <HelpCircle className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="table-cell p-2 border-b border-gray-100 align-middle text-gray-700">{formatCurrency(t.amount)}</div>
+                                                    <div className="table-cell p-2 border-b border-gray-100 align-middle">
+                                                       <CategorySelector
+                                                            currentCategory={t.category}
+                                                            onCategoryChange={(newCategory) => onUpdateTransaction(t.id, { category: newCategory })}
+                                                            ariaLabel={`Change category for ${t.description}`}
+                                                        />
+                                                    </div>
+                                                    <div className="table-cell p-2 border-b border-gray-100 align-middle text-gray-600">{formatDate(t.date)}</div>
+                                                </div>
+                                            ))}
                                             </div>
                                         </div>
-                                        <div className="table-row-group">
+                                    </div>
+                                    {/* Mobile card view */}
+                                    <div className="sm:hidden space-y-3 pl-3 pt-2">
                                         {periodTransactions.sort((a, b) => b.date.getTime() - a.date.getTime()).map(t => (
-                                            <div key={t.id} className="table-row text-sm hover:bg-gray-50">
-                                                <div className="table-cell p-2 border-b border-gray-100 align-middle">
-                                                    <div className="flex items-center">
-                                                        <span className="text-gray-800 truncate font-medium" title={t.description}>{t.description}</span>
-                                                        <button
-                                                            onClick={() => onExplainTransaction(t.id)}
-                                                            className="ml-2 text-gray-400 hover:text-blue-600 transition-colors duration-200 flex-shrink-0"
-                                                            title="Get AI explanation for this transaction"
-                                                            aria-label={`Get AI explanation for ${t.description}`}
-                                                        >
-                                                            <HelpCircle className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
+                                            <div key={t.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                    <span className="text-gray-800 font-medium text-sm break-words flex-1">{t.description}</span>
+                                                    <button
+                                                        onClick={() => onExplainTransaction(t.id)}
+                                                        className="text-gray-400 hover:text-blue-600 transition-colors duration-200 flex-shrink-0"
+                                                        title="Get AI explanation"
+                                                        aria-label={`Get AI explanation for ${t.description}`}
+                                                    >
+                                                        <HelpCircle className="w-4 h-4" />
+                                                    </button>
                                                 </div>
-                                                <div className="table-cell p-2 border-b border-gray-100 align-middle text-gray-700">{formatCurrency(t.amount)}</div>
-                                                <div className="table-cell p-2 border-b border-gray-100 align-middle">
-                                                   <CategorySelector
-                                                        currentCategory={t.category}
-                                                        onCategoryChange={(newCategory) => onUpdateTransaction(t.id, { category: newCategory })}
-                                                        ariaLabel={`Change category for ${t.description}`}
-                                                    />
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                    <span className="text-lg font-bold text-gray-900">{formatCurrency(t.amount)}</span>
+                                                    <span className="text-xs text-gray-500">{formatDate(t.date)}</span>
                                                 </div>
-                                                <div className="table-cell p-2 border-b border-gray-100 align-middle text-gray-600">{formatDate(t.date)}</div>
+                                                <CategorySelector
+                                                    currentCategory={t.category}
+                                                    onCategoryChange={(newCategory) => onUpdateTransaction(t.id, { category: newCategory })}
+                                                    ariaLabel={`Change category for ${t.description}`}
+                                                />
                                             </div>
                                         ))}
-                                        </div>
                                     </div>
                                     </div>
                                 </div>
