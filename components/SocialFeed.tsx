@@ -265,7 +265,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
 
                     {/* Post Actions */}
                     <div className="px-4 py-3 border-t border-gray-100">
-                        <div className="flex items-center space-x-5 mb-2">
+                        <div className="flex items-center justify-around">
                             <button 
                                 onClick={() => handleReaction(post.postKey, 'like')}
                                 disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
@@ -299,7 +299,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                         {post.commentsCount > 0 && !post.commentsExpanded && (
                             <button 
                                 onClick={() => toggleCommentsExpanded(post.postKey)}
-                                className="text-gray-500 text-sm hover:text-gray-700"
+                                className="text-gray-500 text-sm hover:text-gray-700 mt-2 w-full text-center"
                             >
                                 View all {post.commentsCount} {post.commentsCount === 1 ? 'comment' : 'comments'}
                             </button>
