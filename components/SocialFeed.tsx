@@ -241,7 +241,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                     </div>
 
                     {/* Daily Spend Total */}
-                    <div className="p-3 sm:p-4">
+                    <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
                         <p className="text-xs text-gray-500 tracking-wide">Today's Spend</p>
                         <p className="text-3xl font-bold text-gray-900">
                             ${post.transactions
@@ -249,6 +249,32 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                                 .reduce((sum, t) => sum + Math.abs(t.amount), 0)
                                 .toFixed(2)}
                         </p>
+                    </div>
+
+                    {/* Post Content (Expense Transactions List) */}
+                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
+                        {post.transactions.filter(t => t.type === 'Expense').map(t => (
+                            <div key={t.id} className="flex items-start sm:items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-700 text-sm uppercase tracking-wide break-words">
+                                        {t.description}
+                                    </p>
+                                    {t.bucketOfLife && (
+                                        <p className="text-xs text-gray-400 truncate">
+                                            {t.bucketOfLife}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex items-center space-x-2 flex-shrink-0">
+                                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                                        <DollarSign className="w-3 h-3 text-red-600" />
+                                    </div>
+                                    <span className="font-bold text-gray-900 text-sm sm:text-base">
+                                        ${Math.abs(t.amount).toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                     {/* Post Actions */}
