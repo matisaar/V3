@@ -240,8 +240,19 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                         </div>
                     </div>
 
+                    {/* Daily Spend Total */}
+                    <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
+                        <p className="text-xs text-gray-500 tracking-wide">Today's Spend</p>
+                        <p className="text-3xl font-bold text-gray-900">
+                            ${post.transactions
+                                .filter(t => t.type === 'Expense')
+                                .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+                                .toFixed(2)}
+                        </p>
+                    </div>
+
                     {/* Post Content (Transactions List) */}
-                    <div className="p-3 sm:p-4 space-y-3">
+                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
                         {post.transactions.map(t => (
                             <div key={t.id} className="flex items-start sm:items-center justify-between gap-2">
                                 <div className="flex-1 min-w-0">
