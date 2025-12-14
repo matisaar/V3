@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Transaction, PostComment } from '../types';
-import { Heart, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
 import { getPostReactions, togglePostReaction, getPostComments, addPostComment, getBatchPostStats } from '../services/supabaseClient';
 
 interface SocialFeedProps {
@@ -263,34 +263,37 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                         ))}
                     </div>
 
-                    {/* Post Actions - Instagram Style */}
+                    {/* Post Actions */}
                     <div className="px-4 py-3 border-t border-gray-100">
-                        <div className="flex items-center space-x-4 mb-2">
+                        <div className="flex items-center space-x-5 mb-2">
                             <button 
                                 onClick={() => handleReaction(post.postKey, 'like')}
                                 disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
-                                className={`transition-transform active:scale-125 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`flex items-center space-x-1.5 transition-colors ${
+                                    post.userReaction === 'like' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                                <Heart className={`w-6 h-6 ${
-                                    post.userReaction === 'like' 
-                                        ? 'text-red-500 fill-red-500' 
-                                        : 'text-gray-700 hover:text-red-500'
-                                }`} />
+                                <ThumbsUp className={`w-5 h-5 ${post.userReaction === 'like' ? 'fill-current' : ''}`} />
+                                <span className="text-sm font-semibold">{post.likes}</span>
+                            </button>
+                            <button 
+                                onClick={() => handleReaction(post.postKey, 'dislike')}
+                                disabled={!user?.id || loadingStates[`${post.postKey}_dislike`]}
+                                className={`flex items-center space-x-1.5 transition-colors ${
+                                    post.userReaction === 'dislike' ? 'text-red-600' : 'text-gray-700 hover:text-red-600'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <ThumbsDown className={`w-5 h-5 ${post.userReaction === 'dislike' ? 'fill-current' : ''}`} />
+                                <span className="text-sm font-semibold">{post.dislikes}</span>
                             </button>
                             <button 
                                 onClick={() => toggleCommentsExpanded(post.postKey)}
-                                className="hover:text-gray-500 transition-colors"
+                                className="flex items-center space-x-1.5 text-gray-700 hover:text-blue-600 transition-colors"
                             >
-                                <MessageCircle className="w-6 h-6 text-gray-700" />
+                                <MessageCircle className="w-5 h-5" />
+                                <span className="text-sm font-semibold">{post.commentsCount}</span>
                             </button>
                         </div>
-                        
-                        {/* Likes count */}
-                        {post.likes > 0 && (
-                            <p className="font-semibold text-sm text-gray-900 mb-1">
-                                {post.likes} {post.likes === 1 ? 'like' : 'likes'}
-                            </p>
-                        )}
                         
                         {/* View comments link */}
                         {post.commentsCount > 0 && !post.commentsExpanded && (
