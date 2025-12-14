@@ -1,14 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MoneyIcon } from './icons';
-import { getSupabaseClient } from '../services/supabaseClient';
+import { getSupabaseClient, uploadAvatar, updateProfileAvatar } from '../services/supabaseClient';
+import { Camera } from 'lucide-react';
 
-export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?: string | null; firstName?: string | null }) => void }> = ({ onAuth }) => {
+export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?: string | null; firstName?: string | null; avatarUrl?: string | null }) => void }> = ({ onAuth }) => {
   const getClient = () => getSupabaseClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Removed useEffect that calls getSession and onAuthStateChange.
   // App.tsx handles the global auth state and listener.
@@ -30,14 +47,22 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
       setLoading(false);
       return;
     }
-    // Create/update the profile row with the first name
+    // Create/update the profile row with the first name and upload avatar
     if (data?.user) {
       try {
+        let avatarUrl: string | null = null;
+        
+        // Upload avatar if provided
+        if (avatarFile) {
+          avatarUrl = await uploadAvatar(data.user.id, avatarFile);
+        }
+        
         const { error: profileError } = await getClient().from('profiles').upsert({ 
           id: data.user.id, 
           email: data.user.email, 
           first_name: firstName,
-          full_name: firstName 
+          full_name: firstName,
+          avatar_url: avatarUrl
         }, { onConflict: 'id' });
         if (profileError) {
           console.warn('Could not upsert profile after signup:', profileError);
@@ -85,6 +110,31 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
               <h2 className="text-2xl font-semibold text-center text-gray-700 mb-1">Welcome Back!</h2>
               <p className="text-sm text-gray-500 text-center mb-6">Sign in to access your dashboard.</p>
               <form onSubmit={e => { e.preventDefault(); handleSignIn(); }} className="space-y-6">
+                {/* Avatar Upload */}
+                <div className="flex justify-center">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative w-24 h-24 rounded-full bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors flex items-center justify-center overflow-hidden group"
+                  >
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-8 h-8 text-gray-400 group-hover:text-gray-500" />
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                      <span className="text-white text-xs opacity-0 group-hover:opacity-100">Add Photo</span>
+                    </div>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 text-center -mt-4">Click to add profile photo (optional)</p>
+                
                 <div>
                   <label htmlFor="firstName" className="text-sm font-medium text-gray-600 block mb-2">First Name</label>
                   <div className="relative">

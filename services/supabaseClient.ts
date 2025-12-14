@@ -124,6 +124,55 @@ export async function upsertTransactions(userId: string, transactions: any[], us
 
 export default getSupabaseClient;
 
+// Upload avatar to Supabase Storage
+export async function uploadAvatar(userId: string, file: File): Promise<string | null> {
+  const sb = getSupabaseClient();
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/avatar.${fileExt}`;
+    
+    // Upload the file (will overwrite existing)
+    const { error: uploadError } = await sb.storage
+      .from('avatars')
+      .upload(fileName, file, { upsert: true });
+    
+    if (uploadError) throw uploadError;
+    
+    // Get the public URL
+    const { data } = sb.storage.from('avatars').getPublicUrl(fileName);
+    return data?.publicUrl || null;
+  } catch (e) {
+    console.error('Failed to upload avatar:', e);
+    return null;
+  }
+}
+
+// Update user profile with avatar URL
+export async function updateProfileAvatar(userId: string, avatarUrl: string): Promise<boolean> {
+  const sb = getSupabaseClient();
+  try {
+    const { error } = await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', userId);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Failed to update profile avatar:', e);
+    return false;
+  }
+}
+
+// Get user profile including avatar
+export async function getProfile(userId: string): Promise<{ first_name?: string; avatar_url?: string } | null> {
+  const sb = getSupabaseClient();
+  try {
+    const { data, error } = await sb.from('profiles').select('first_name, avatar_url').eq('id', userId).single();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('Failed to get profile:', e);
+    return null;
+  }
+}
+
 export async function fetchTransactionsByUser(userId: string) {
   const sb = getSupabaseClient();
   try {
@@ -200,7 +249,7 @@ export async function fetchRecurringExpensesByUser(userId: string) {
 
 /**
  * Fetch all public transactions from all users for the social feed
- * Also fetches profile names to display the latest user names
+ * Also fetches profile names and avatars to display the latest user info
  */
 export async function fetchAllPublicTransactions() {
   const sb = getSupabaseClient();
@@ -217,18 +266,21 @@ export async function fetchAllPublicTransactions() {
     // Get unique user IDs
     const userIds = [...new Set((transactionsData || []).map((t: any) => t.user_id).filter(Boolean))];
     
-    // Fetch profiles for all users (to get latest names)
-    let profilesMap: { [userId: string]: string } = {};
+    // Fetch profiles for all users (to get latest names and avatars)
+    let profilesMap: { [userId: string]: { name: string; avatarUrl?: string } } = {};
     if (userIds.length > 0) {
       try {
         const { data: profilesData } = await sb
           .from('profiles')
-          .select('id, first_name, full_name, email')
+          .select('id, first_name, full_name, email, avatar_url')
           .in('id', userIds);
         
         if (profilesData) {
           profilesData.forEach((p: any) => {
-            profilesMap[p.id] = p.first_name || p.full_name || p.email || 'Anonymous User';
+            profilesMap[p.id] = {
+              name: p.first_name || p.full_name || p.email || 'Anonymous User',
+              avatarUrl: p.avatar_url || undefined
+            };
           });
         }
       } catch (e) {
@@ -240,11 +292,14 @@ export async function fetchAllPublicTransactions() {
     // Map to Transaction objects, preferring profile names over transaction user_name
     return (transactionsData || []).map((row: any) => {
       const raw = row.raw || {};
-      const userName = profilesMap[row.user_id] || row.user_name || 'Anonymous User';
+      const profile = profilesMap[row.user_id];
+      const userName = profile?.name || row.user_name || 'Anonymous User';
+      const avatarUrl = profile?.avatarUrl;
       return {
         id: row.id,
         userId: row.user_id,
         userName,
+        avatarUrl,
         date: new Date(row.date),
         description: row.description || raw.description || '',
         amount: typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0,

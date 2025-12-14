@@ -13,6 +13,7 @@ interface PostData {
     date: string;
     userId: string;
     userName: string;
+    avatarUrl?: string;
     transactions: Transaction[];
     timestamp: number;
     likes: number;
@@ -51,6 +52,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
             
             const tUserId = t.userId || 'anonymous';
             const tUserName = t.userName || 'Anonymous User';
+            const tAvatarUrl = t.avatarUrl;
             const postKey = `${dateStr}_${tUserId}`;
 
             if (!groups[postKey]) {
@@ -59,6 +61,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                     date: dateStr,
                     userId: tUserId,
                     userName: tUserName,
+                    avatarUrl: tAvatarUrl,
                     transactions: [],
                     timestamp: t.date.getTime()
                 };
@@ -224,7 +227,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                     <div className="p-3 sm:p-4 border-b border-gray-100 flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                             <img 
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`} 
+                                src={post.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`} 
                                 alt="User Avatar" 
                                 className="w-full h-full object-cover"
                             />

@@ -10,6 +10,7 @@ export interface Transaction {
   bucketOfLife?: string;
   userName?: string;
   userId?: string;
+  avatarUrl?: string;
   // Social features
   likes?: number;
   dislikes?: number;
