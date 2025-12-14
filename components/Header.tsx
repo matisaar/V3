@@ -14,6 +14,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, onSignOut, onAvatarUpdate }) => {
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarKey, setAvatarKey] = useState(Date.now()); // Cache buster
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -24,13 +25,25 @@ export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, o
             const avatarUrl = await uploadAvatar(user.id, file);
             if (avatarUrl) {
                 await updateProfileAvatar(user.id, avatarUrl);
-                onAvatarUpdate?.(avatarUrl);
+                // Add cache buster to force image reload
+                const urlWithCacheBuster = `${avatarUrl}?t=${Date.now()}`;
+                onAvatarUpdate?.(urlWithCacheBuster);
+                setAvatarKey(Date.now()); // Force re-render
             }
         } catch (err) {
             console.error('Failed to upload avatar:', err);
         } finally {
             setIsUploadingAvatar(false);
         }
+    };
+
+    // Get avatar URL with cache buster if needed
+    const getAvatarUrl = () => {
+        if (user?.avatarUrl) {
+            // If URL already has query params, use it as-is, otherwise add cache buster
+            return user.avatarUrl.includes('?') ? user.avatarUrl : `${user.avatarUrl}?t=${avatarKey}`;
+        }
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`;
     };
 
     return (
@@ -61,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, o
                             ) : (
                                 <>
                                     <img 
-                                        src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
+                                        src={getAvatarUrl()} 
                                         alt="Profile" 
                                         className="w-full h-full object-cover"
                                     />
