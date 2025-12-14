@@ -240,29 +240,23 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                         </div>
                     </div>
 
-                    {/* Today's Spend Summary */}
-                    <div className="p-4 sm:p-6 text-center border-b border-gray-100">
-                        <p className="text-sm text-gray-500 mb-1">Today's Spend</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-gray-900">
-                            ${post.transactions
-                                .filter(t => t.type === 'Expense')
-                                .reduce((sum, t) => sum + Math.abs(t.amount), 0)
-                                .toFixed(2)}
-                        </p>
-                    </div>
-
                     {/* Post Content (Transactions List) */}
                     <div className="p-3 sm:p-4 space-y-3">
                         {post.transactions.map(t => (
-                            <div key={t.id} className="flex items-center justify-between gap-2 py-1">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="font-medium text-gray-700 text-sm uppercase tracking-wide truncate">
+                            <div key={t.id} className="flex items-start sm:items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-700 text-sm uppercase tracking-wide break-words">
                                         {t.description}
-                                    </span>
+                                    </p>
+                                    {t.bucketOfLife && (
+                                        <p className="text-xs text-gray-400 truncate">
+                                            {t.bucketOfLife}
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                    <div className={`w-5 h-5 rounded-full ${t.type === 'Income' ? 'bg-green-500' : 'bg-green-500'} flex items-center justify-center`}>
-                                        <DollarSign className="w-3 h-3 text-white" />
+                                <div className="flex items-center space-x-2 flex-shrink-0">
+                                    <div className={`w-6 h-6 rounded-full ${t.type === 'Income' ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center`}>
+                                        <DollarSign className={`w-3 h-3 ${t.type === 'Income' ? 'text-green-600' : 'text-red-600'}`} />
                                     </div>
                                     <span className="font-bold text-gray-900 text-sm sm:text-base">
                                         ${Math.abs(t.amount).toFixed(2)}
