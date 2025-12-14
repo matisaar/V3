@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Transaction, PostComment } from '../types';
-import { ThumbsUp, ThumbsDown, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
-import { getPostReactions, togglePostReaction, getPostComments, addPostComment } from '../services/supabaseClient';
+import { Heart, MessageCircle, DollarSign, Send, Loader } from 'lucide-react';
+import { getPostReactions, togglePostReaction, getPostComments, addPostComment, getBatchPostStats } from '../services/supabaseClient';
 
 interface SocialFeedProps {
     transactions: Transaction[];
@@ -17,10 +17,11 @@ interface PostData {
     timestamp: number;
     likes: number;
     dislikes: number;
+    commentsCount: number;
     userReaction: 'like' | 'dislike' | null;
     comments: PostComment[];
     commentsExpanded: boolean;
-    reactionsLoaded: boolean;
+    statsLoaded: boolean;
 }
 
 // Helper to add delay between requests
@@ -31,6 +32,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
     const [commentInputs, setCommentInputs] = useState<{ [postKey: string]: string }>({});
     const [loadingStates, setLoadingStates] = useState<{ [postKey: string]: boolean }>({});
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const statsLoadedRef = useRef(false);
 
     // Group transactions by date AND user
     const groupedPosts = useMemo(() => {
@@ -74,10 +76,11 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                 ...post,
                 likes: 0,
                 dislikes: 0,
+                commentsCount: 0,
                 userReaction: null,
                 comments: [],
                 commentsExpanded: false,
-                reactionsLoaded: false,
+                statsLoaded: false,
             }));
             setPosts(initialPosts);
             setIsInitialLoad(false);
@@ -87,8 +90,33 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         }
     }, [groupedPosts]);
 
-    // NOTE: Reactions are NOT auto-loaded to avoid rate limiting.
-    // They load on-demand when user clicks like/dislike button.
+    // Load stats for all posts in batch after initial render
+    useEffect(() => {
+        const loadStats = async () => {
+            if (posts.length === 0 || statsLoadedRef.current) return;
+            statsLoadedRef.current = true;
+            
+            const postKeys = posts.map(p => p.postKey);
+            try {
+                const stats = await getBatchPostStats(postKeys, user?.id || undefined);
+                
+                setPosts(prev => prev.map(post => ({
+                    ...post,
+                    likes: stats[post.postKey]?.likes || 0,
+                    dislikes: stats[post.postKey]?.dislikes || 0,
+                    commentsCount: stats[post.postKey]?.commentsCount || 0,
+                    userReaction: stats[post.postKey]?.userReaction || null,
+                    statsLoaded: true,
+                })));
+            } catch (error) {
+                console.error('Failed to load post stats:', error);
+                // Mark as loaded anyway to prevent retries
+                setPosts(prev => prev.map(post => ({ ...post, statsLoaded: true })));
+            }
+        };
+
+        loadStats();
+    }, [posts.length, user?.id]);
 
     const handleReaction = async (postKey: string, reactionType: 'like' | 'dislike') => {
         if (!user?.id) return;
@@ -96,19 +124,6 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
         setLoadingStates(prev => ({ ...prev, [`${postKey}_${reactionType}`]: true }));
         
         try {
-            // If reactions haven't been loaded yet, load them first
-            const post = posts.find(p => p.postKey === postKey);
-            if (post && !post.reactionsLoaded) {
-                const reactions = await getPostReactions(postKey, user.id);
-                setPosts(prev => prev.map(p => 
-                    p.postKey === postKey 
-                        ? { ...p, likes: reactions.likes, dislikes: reactions.dislikes, userReaction: reactions.userReaction, reactionsLoaded: true }
-                        : p
-                ));
-                // Small delay before the toggle
-                await delay(100);
-            }
-            
             await togglePostReaction(postKey, user.id, reactionType);
             
             // Refresh reactions for this post
@@ -137,7 +152,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
             
             setPosts(prev => prev.map(post => 
                 post.postKey === postKey 
-                    ? { ...post, comments: [...post.comments, newComment], commentsExpanded: true }
+                    ? { ...post, comments: [...post.comments, newComment], commentsExpanded: true, commentsCount: post.commentsCount + 1 }
                     : post
             ));
             
@@ -248,39 +263,44 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                         ))}
                     </div>
 
-                    {/* Post Actions */}
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-gray-500">
-                        <button 
-                            onClick={() => handleReaction(post.postKey, 'like')}
-                            disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
-                            className={`flex items-center space-x-1.5 transition-colors ${
-                                post.userReaction === 'like' 
-                                    ? 'text-green-600' 
-                                    : 'hover:text-green-600'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                            <ThumbsUp className={`w-5 h-5 ${post.userReaction === 'like' ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-medium">{post.likes}</span>
-                        </button>
-                        <button 
-                            onClick={() => handleReaction(post.postKey, 'dislike')}
-                            disabled={!user?.id || loadingStates[`${post.postKey}_dislike`]}
-                            className={`flex items-center space-x-1.5 transition-colors ${
-                                post.userReaction === 'dislike' 
-                                    ? 'text-red-600' 
-                                    : 'hover:text-red-600'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                            <ThumbsDown className={`w-5 h-5 ${post.userReaction === 'dislike' ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-medium">{post.dislikes}</span>
-                        </button>
-                        <button 
-                            onClick={() => toggleCommentsExpanded(post.postKey)}
-                            className="flex items-center space-x-1.5 hover:text-blue-600 transition-colors"
-                        >
-                            <MessageCircle className="w-5 h-5" />
-                            <span className="text-sm font-medium">{post.comments.length}</span>
-                        </button>
+                    {/* Post Actions - Instagram Style */}
+                    <div className="px-4 py-3 border-t border-gray-100">
+                        <div className="flex items-center space-x-4 mb-2">
+                            <button 
+                                onClick={() => handleReaction(post.postKey, 'like')}
+                                disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
+                                className={`transition-transform active:scale-125 disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <Heart className={`w-6 h-6 ${
+                                    post.userReaction === 'like' 
+                                        ? 'text-red-500 fill-red-500' 
+                                        : 'text-gray-700 hover:text-red-500'
+                                }`} />
+                            </button>
+                            <button 
+                                onClick={() => toggleCommentsExpanded(post.postKey)}
+                                className="hover:text-gray-500 transition-colors"
+                            >
+                                <MessageCircle className="w-6 h-6 text-gray-700" />
+                            </button>
+                        </div>
+                        
+                        {/* Likes count */}
+                        {post.likes > 0 && (
+                            <p className="font-semibold text-sm text-gray-900 mb-1">
+                                {post.likes} {post.likes === 1 ? 'like' : 'likes'}
+                            </p>
+                        )}
+                        
+                        {/* View comments link */}
+                        {post.commentsCount > 0 && !post.commentsExpanded && (
+                            <button 
+                                onClick={() => toggleCommentsExpanded(post.postKey)}
+                                className="text-gray-500 text-sm hover:text-gray-700"
+                            >
+                                View all {post.commentsCount} {post.commentsCount === 1 ? 'comment' : 'comments'}
+                            </button>
+                        )}
                     </div>
                     
                     {/* Comments Section */}

@@ -402,3 +402,63 @@ export async function addPostComment(postKey: string, userId: string, userName: 
   }
 }
 
+/**
+ * Get social stats (likes, dislikes, comment counts) for multiple posts in batch
+ * This is more efficient than calling getPostReactions for each post
+ */
+export async function getBatchPostStats(postKeys: string[], currentUserId?: string) {
+  const sb = getSupabaseClient();
+  
+  const result: { [postKey: string]: { likes: number; dislikes: number; commentsCount: number; userReaction: 'like' | 'dislike' | null } } = {};
+  
+  // Initialize all posts with zeros
+  postKeys.forEach(key => {
+    result[key] = { likes: 0, dislikes: 0, commentsCount: 0, userReaction: null };
+  });
+  
+  if (postKeys.length === 0) return result;
+  
+  try {
+    // Fetch all likes for these posts in one query
+    const { data: likesData, error: likesError } = await sb
+      .from('post_likes')
+      .select('post_key, user_id, reaction_type')
+      .in('post_key', postKeys);
+      
+    if (!likesError && likesData) {
+      likesData.forEach((row: any) => {
+        if (result[row.post_key]) {
+          if (row.reaction_type === 'like') {
+            result[row.post_key].likes++;
+          } else if (row.reaction_type === 'dislike') {
+            result[row.post_key].dislikes++;
+          }
+          // Check if this is the current user's reaction
+          if (currentUserId && row.user_id === currentUserId) {
+            result[row.post_key].userReaction = row.reaction_type as 'like' | 'dislike';
+          }
+        }
+      });
+    }
+    
+    // Fetch comment counts for these posts in one query
+    const { data: commentsData, error: commentsError } = await sb
+      .from('post_comments')
+      .select('post_key')
+      .in('post_key', postKeys);
+      
+    if (!commentsError && commentsData) {
+      commentsData.forEach((row: any) => {
+        if (result[row.post_key]) {
+          result[row.post_key].commentsCount++;
+        }
+      });
+    }
+    
+  } catch (e) {
+    console.error('Failed to fetch batch post stats:', e);
+  }
+  
+  return result;
+}
+
