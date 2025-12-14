@@ -200,25 +200,51 @@ export async function fetchRecurringExpensesByUser(userId: string) {
 
 /**
  * Fetch all public transactions from all users for the social feed
+ * Also fetches profile names to display the latest user names
  */
 export async function fetchAllPublicTransactions() {
   const sb = getSupabaseClient();
   try {
-    const { data, error } = await sb
+    // Fetch transactions
+    const { data: transactionsData, error: txError } = await sb
       .from('transactions')
       .select('id, user_id, user_name, date, description, amount, category, type, bucket_of_life, raw')
       .order('date', { ascending: false })
       .limit(500); // Limit to recent 500 transactions for performance
       
-    if (error) throw error;
+    if (txError) throw txError;
     
-    // Map to Transaction objects
-    return (data || []).map((row: any) => {
+    // Get unique user IDs
+    const userIds = [...new Set((transactionsData || []).map((t: any) => t.user_id).filter(Boolean))];
+    
+    // Fetch profiles for all users (to get latest names)
+    let profilesMap: { [userId: string]: string } = {};
+    if (userIds.length > 0) {
+      try {
+        const { data: profilesData } = await sb
+          .from('profiles')
+          .select('id, first_name, full_name, email')
+          .in('id', userIds);
+        
+        if (profilesData) {
+          profilesData.forEach((p: any) => {
+            profilesMap[p.id] = p.first_name || p.full_name || p.email || 'Anonymous User';
+          });
+        }
+      } catch (e) {
+        // Profiles table might not exist, continue with transaction user_name
+        console.debug('Could not fetch profiles:', e);
+      }
+    }
+    
+    // Map to Transaction objects, preferring profile names over transaction user_name
+    return (transactionsData || []).map((row: any) => {
       const raw = row.raw || {};
+      const userName = profilesMap[row.user_id] || row.user_name || 'Anonymous User';
       return {
         id: row.id,
         userId: row.user_id,
-        userName: row.user_name || 'Anonymous User',
+        userName,
         date: new Date(row.date),
         description: row.description || raw.description || '',
         amount: typeof row.amount === 'number' ? row.amount : parseFloat(row.amount) || 0,
