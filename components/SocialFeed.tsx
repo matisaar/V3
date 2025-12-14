@@ -264,47 +264,49 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ transactions, user }) =>
                     </div>
 
                     {/* Post Actions */}
-                    <div className="px-4 py-3 border-t border-gray-100">
-                        <div className="flex items-center justify-around">
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
                             <button 
                                 onClick={() => handleReaction(post.postKey, 'like')}
                                 disabled={!user?.id || loadingStates[`${post.postKey}_like`]}
                                 className={`flex items-center space-x-1.5 transition-colors ${
-                                    post.userReaction === 'like' ? 'text-green-600' : 'text-gray-700 hover:text-green-600'
+                                    post.userReaction === 'like' ? 'text-green-600' : 'text-gray-500 hover:text-green-600'
                                 } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 <ThumbsUp className={`w-5 h-5 ${post.userReaction === 'like' ? 'fill-current' : ''}`} />
-                                <span className="text-sm font-semibold">{post.likes}</span>
+                                <span className="text-sm font-medium">{post.likes}</span>
                             </button>
                             <button 
                                 onClick={() => handleReaction(post.postKey, 'dislike')}
                                 disabled={!user?.id || loadingStates[`${post.postKey}_dislike`]}
                                 className={`flex items-center space-x-1.5 transition-colors ${
-                                    post.userReaction === 'dislike' ? 'text-red-600' : 'text-gray-700 hover:text-red-600'
+                                    post.userReaction === 'dislike' ? 'text-red-600' : 'text-gray-500 hover:text-red-600'
                                 } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 <ThumbsDown className={`w-5 h-5 ${post.userReaction === 'dislike' ? 'fill-current' : ''}`} />
-                                <span className="text-sm font-semibold">{post.dislikes}</span>
+                                <span className="text-sm font-medium">{post.dislikes}</span>
                             </button>
                             <button 
                                 onClick={() => toggleCommentsExpanded(post.postKey)}
-                                className="flex items-center space-x-1.5 text-gray-700 hover:text-blue-600 transition-colors"
+                                className="flex items-center space-x-1.5 text-gray-500 hover:text-blue-600 transition-colors"
                             >
                                 <MessageCircle className="w-5 h-5" />
-                                <span className="text-sm font-semibold">{post.commentsCount}</span>
+                                <span className="text-sm font-medium">{post.commentsCount}</span>
                             </button>
                         </div>
-                        
-                        {/* View comments link */}
-                        {post.commentsCount > 0 && !post.commentsExpanded && (
+                    </div>
+                    
+                    {/* View comments link */}
+                    {post.commentsCount > 0 && !post.commentsExpanded && (
+                        <div className="px-4 pb-3">
                             <button 
                                 onClick={() => toggleCommentsExpanded(post.postKey)}
-                                className="text-gray-500 text-sm hover:text-gray-700 mt-2 w-full text-center"
+                                className="text-gray-500 text-sm hover:text-gray-700"
                             >
                                 View all {post.commentsCount} {post.commentsCount === 1 ? 'comment' : 'comments'}
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                     
                     {/* Comments Section */}
                     {post.commentsExpanded && (
