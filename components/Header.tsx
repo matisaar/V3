@@ -1,15 +1,38 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { MoneyIcon } from './icons';
-import { FileUp, Loader } from 'lucide-react';
+import { FileUp, Loader, Camera } from 'lucide-react';
+import { uploadAvatar, updateProfileAvatar } from '../services/supabaseClient';
 
 interface HeaderProps {
     onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     isLoading: boolean;
-    user?: { id: string | null; email?: string | null } | null;
+    user?: { id: string | null; email?: string | null; avatarUrl?: string | null } | null;
     onSignOut?: () => void;
+    onAvatarUpdate?: (newUrl: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, onSignOut }) => {
+export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, onSignOut, onAvatarUpdate }) => {
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user?.id) return;
+        
+        setIsUploadingAvatar(true);
+        try {
+            const avatarUrl = await uploadAvatar(user.id, file);
+            if (avatarUrl) {
+                await updateProfileAvatar(user.id, avatarUrl);
+                onAvatarUpdate?.(avatarUrl);
+            }
+        } catch (err) {
+            console.error('Failed to upload avatar:', err);
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
+
     return (
         <header
             className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-200"
@@ -25,7 +48,37 @@ export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, o
             <div className="flex items-center gap-3">
                 {user && user.id ? (
                     <>
-                        <div className="text-sm text-gray-600 bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center mr-2">
+                        {/* Avatar with upload */}
+                        <div 
+                            className="relative w-10 h-10 rounded-full bg-gray-200 overflow-hidden cursor-pointer group"
+                            onClick={() => avatarInputRef.current?.click()}
+                            title="Click to change profile picture"
+                        >
+                            {isUploadingAvatar ? (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                                    <Loader className="w-5 h-5 animate-spin text-gray-600" />
+                                </div>
+                            ) : (
+                                <>
+                                    <img 
+                                        src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                                        <Camera className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                </>
+                            )}
+                            <input
+                                ref={avatarInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleAvatarUpload}
+                                className="hidden"
+                            />
+                        </div>
+                        <div className="text-sm text-gray-600 bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center">
                             <svg className="w-3 h-3 text-green-600 mr-2" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
                             <span className="truncate">Signed in as <span className="font-semibold">{user.email ?? 'Account'}</span></span>
                         </div>

@@ -35,7 +35,7 @@ const App: React.FC = () => {
     console.log('App version: Social Feed Reverted to Local');
   }, []);
 
-  const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null } | null>(null);
+  const [user, setUser] = useState<{ id: string | null; email?: string | null; firstName?: string | null; avatarUrl?: string | null } | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Helper to clear all user-specific in-memory state when signing out
@@ -144,12 +144,21 @@ const App: React.FC = () => {
                 try {
                     const { data: profile, error: profileError } = await supabase
                         .from('profiles')
-                        .select('first_name, full_name')
+                        .select('first_name, full_name, avatar_url')
                         .eq('id', session.user.id)
                         .maybeSingle();
                     
                     if (!profileError && profile) {
                         firstNameFromMeta = profile.first_name || profile.full_name || null;
+                        if (mounted) {
+                            handleAuthChange({ 
+                                id: session.user.id, 
+                                email: session.user.email ?? null, 
+                                firstName: firstNameFromMeta,
+                                avatarUrl: profile.avatar_url || null
+                            });
+                            return; // Already handled auth change with avatar
+                        }
                     }
                 } catch (e) {
                     // Profiles table might not exist yet - that's okay
@@ -158,7 +167,7 @@ const App: React.FC = () => {
             }
             
             if (mounted) {
-                handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta });
+                handleAuthChange({ id: session.user.id, email: session.user.email ?? null, firstName: firstNameFromMeta, avatarUrl: null });
             }
         }
       } catch (e) {
@@ -545,13 +554,17 @@ const App: React.FC = () => {
     );
   }
 
+  const handleAvatarUpdate = (newUrl: string) => {
+    setUser(prev => prev ? { ...prev, avatarUrl: newUrl } : prev);
+  };
+
   return (
     <div className="min-h-screen bg-[#FDFDFD] p-4 sm:p-6 md:p-8 font-sans">
       {!user?.id ? (
         <SupabaseAuth onAuth={handleAuthChange} />
       ) : (
         <div className="max-w-7xl mx-auto">
-          <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} />
+          <Header onFileChange={handleFileChange} isLoading={isLoading} user={user} onSignOut={handleSignOut} onAvatarUpdate={handleAvatarUpdate} />
 
           {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 flex items-center" role="alert">
