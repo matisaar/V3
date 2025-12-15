@@ -1,4 +1,4 @@
--- Social Feed Tables for Personal Finance Tracker
+-- Social Feed Tables for Budgit
 -- Run this in your Supabase SQL Editor to enable social features
 
 -- Table to store likes/dislikes on transaction posts

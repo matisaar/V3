@@ -51,11 +51,11 @@ export const Header: React.FC<HeaderProps> = ({ onFileChange, isLoading, user, o
             className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-200"
         >
             <div className="flex items-center mb-4 sm:mb-0">
-                <div className="bg-gray-800 p-3 rounded-lg mr-4">
-                    <MoneyIcon className="w-8 h-8 text-white" />
+                <div className="mr-4">
+                    <img src="/budgit-logo.svg" alt="Budgit Logo" className="w-12 h-12" />
                 </div>
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Personal Finance Tracker</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Budgit <span className="text-lg sm:text-xl font-normal text-gray-600">- Smarter Spending</span></h1>
                 </div>
             </div>
             <div className="flex items-center gap-3">

@@ -96,12 +96,11 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
       <div className="max-w-md w-full mx-auto">
         <div className="flex justify-center mb-8">
           <div className="flex items-center">
-            <div className="bg-gray-800 p-3 rounded-lg mr-4">
-              {/* MoneyIcon from icons.tsx */}
-              <MoneyIcon className="w-8 h-8 text-white" />
+            <div className="mr-4">
+              <img src="/budgit-logo.svg" alt="Budgit Logo" className="w-14 h-14" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Personal Finance Tracker</h1>
+              <h1 className="text-3xl font-bold text-gray-800">Budgit <span className="text-xl font-normal text-gray-600">- Smarter Spending</span></h1>
             </div>
           </div>
         </div>
