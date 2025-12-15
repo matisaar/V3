@@ -11,6 +11,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +35,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
   const handleSignUp = async () => {
     setLoading(true);
     setError(null);
+    setInfo(null);
     // Pass firstName as user_metadata (Supabase will store this in auth.users)
     const { data, error } = await getClient().auth.signUp({
       email,
@@ -72,6 +74,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
       }
       // App.tsx listener will pick up the auth change automatically.
     }
+    setInfo('Sign-up started. Please check your email inbox for a confirmation link before signing in.');
     setLoading(false);
   };
 
@@ -235,6 +238,7 @@ export const SupabaseAuth: React.FC<{ onAuth: (user: { id: string | null; email?
               </form>
             </>
           {error && <div className="text-red-600 mt-2 text-center">{error}</div>}
+          {info && <div className="text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-3 mt-3 text-center">{info}</div>}
         </div>
         <p className="text-center text-sm text-gray-500 mt-8">
           Don't have an account? <a href="#" className="font-semibold text-blue-600 hover:underline">Sign Up</a>
